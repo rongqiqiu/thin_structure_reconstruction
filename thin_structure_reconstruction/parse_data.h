@@ -23,7 +23,9 @@ using namespace std;
 
 class DataParser {
 public:
-	DataParser() : parsed_(false), export_raw_points_(false), radius_(0.0) {}
+	DataParser() 
+		: parsed_(false), export_raw_points_(false), export_user_points_(false),
+		  import_user_points_(false), radius_(0.0) {}
 	void SetRadius(double input_radius) {
 		radius_ = input_radius;
 	}
@@ -42,6 +44,12 @@ public:
 	void SetExportRawPoints(bool export_raw_points) {
 		export_raw_points_ = export_raw_points;
 	}
+	void SetExportUserPoints(bool export_user_points) {
+		export_user_points_ = export_user_points;
+	}
+	void SetImportUserPoints(bool import_user_points) {
+		import_user_points_ = import_user_points;
+	}
 	void Parse();
 	vector<Dataset> GetDatasets() {
 		if (!parsed_) {
@@ -52,6 +60,8 @@ public:
 private:
 	bool parsed_;
 	bool export_raw_points_;
+	bool export_user_points_;
+	bool import_user_points_;
 	string root_directory_;
 	string export_directory_;
 	string metadata_file_name_;
@@ -59,9 +69,9 @@ private:
 	double radius_;
 	stereo_export::Metadata ParseMetadata();
 	stereo_export::StereoRasterPoints ParseStereoRasterPoints(const string& relative_path);
-	Dataset ParseDataset(const stereo_export::DatasetMetadata& dataset_metadata, const string& utm_file_name, const string& ecef_file_name);
+	Dataset ParseDataset(const stereo_export::DatasetMetadata& dataset_metadata, const string& utm_file_name, const string& ecef_file_name, const string& user_file_name);
 	vector<Dataset> ParseDatasets(const stereo_export::Metadata& metadata);
-	vector<StereoRaster> ParseStereoRasters(const google::protobuf::RepeatedPtrField<stereo_export::StereoRasterMetadata>& stereo_rasters, const UTMBox& utm_box_user, vector<Point3d>* points_utm, const UTMBox& utm_box_raw, const string& utm_file_name, const string& ecef_file_name);
+	vector<StereoRaster> ParseStereoRasters(const google::protobuf::RepeatedPtrField<stereo_export::StereoRasterMetadata>& stereo_rasters, const UTMBox& utm_box_user, vector<Vector3d>* points_utm, const UTMBox& utm_box_raw, const string& utm_file_name, const string& ecef_file_name, const string& user_file_name);
 	vector<ImageCamera> ParseImageCameras(const google::protobuf::RepeatedPtrField<stereo_export::ImageCameraMetadata>& image_cameras);
 };
 

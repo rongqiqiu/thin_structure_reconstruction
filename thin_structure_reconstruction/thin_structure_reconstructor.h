@@ -4,28 +4,46 @@
 #include "basic_types.h"
 
 class CylinderPrimitive {
-	Point3d pa, pb;
+	Vector3d pa, pb;
 	double r;
 };
 
 class ThinStructureReconstructor {
 public:
 	ThinStructureReconstructor() {}
-	ThinStructureReconstructor(const Dataset& dataset) : dataset_(dataset) {}
+	ThinStructureReconstructor(const Dataset& dataset) : dataset_(dataset) {
+		ParseDataset();
+	}
+	ThinStructureReconstructor(const Dataset& dataset, const string& export_directory) 
+		: dataset_(dataset), export_directory_(export_directory) {
+		ParseDataset();
+	}
 	void SetDataset(const Dataset& dataset) {
 		dataset_ = dataset;
+		ParseDataset();
 	}
 	Dataset GetDataset() {
 		return dataset_;
 	}
 	void ParseDataset();
-	void ExportRawPoints(const string& file_path);
+	void SetExportDirectory(const string& export_directory) {
+		export_directory_ = export_directory;
+	}
+	void ExportRawPoints();
+	void ComputePCAValues();
+	void LoadPCAValues();
 	void ComputeCylinderHypotheses();
 private:
+	string export_directory_;
 	Dataset dataset_;
-	Point3d reference_point_;
+	Vector3d reference_point_;
 	pcl::PointCloud<pcl::PointXYZ> point_cloud_;
+	vector<Vector3d> pca_values_;
+	vector<int> index_pca_filtered_;
+	pcl::PointCloud<pcl::PointXYZ> point_cloud_pca_filtered_;
 	vector<CylinderPrimitive> cylinder_hypotheses_;
+	double ComputeStandardDeviation(const int& index, const vector<int>& pointIdx, const int& dimension);
+	Vector3d ComputePCAValue(const int& index, const vector<int>& pointIdx);
 };
 
 #endif

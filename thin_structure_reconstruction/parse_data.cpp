@@ -82,75 +82,101 @@ int round(const double& number) {
 	return number + .5;
 }
 
-vector<StereoRaster> DataParser::ParseStereoRasters(const google::protobuf::RepeatedPtrField<stereo_export::StereoRasterMetadata>& stereo_rasters, const UTMBox& utm_box_user, vector<Point3d>* points_utm, const UTMBox& utm_box_raw, const string& utm_file_name, const string& ecef_file_name) {
-	cout << "About to parse " << stereo_rasters.size() << " stereo rasters." << endl;
-	ofstream ostream_utm;
-	ofstream ostream_ecef;
-	if (export_raw_points_) {
-		ostream_utm.open(utm_file_name);
-		ostream_ecef.open(ecef_file_name);
-	}
-	vector<StereoRaster> vector_stereo_raster;
-	for (int index_stereo_raster = 0; index_stereo_raster < stereo_rasters.size(); ++index_stereo_raster) {
-		cout << "Parsing stereo raster #" << index_stereo_raster << endl;
-		const stereo_export::StereoRasterMetadata& metadata = stereo_rasters.Get(index_stereo_raster);
-		StereoRaster stereo_raster;
-		stereo_raster.file_path = metadata.stereo_raster_path();
-		const stereo_export::StereoRasterPoints stereo_raster_points = ParseStereoRasterPoints(metadata.stereo_raster_path());
-		if (stereo_raster_points.w() * stereo_raster_points.h() != stereo_raster_points.points_size()) {
-			cout << "Wrong size of stereo raster points!" << endl;
-			throw std::exception();
+vector<StereoRaster> DataParser::ParseStereoRasters(const google::protobuf::RepeatedPtrField<stereo_export::StereoRasterMetadata>& stereo_rasters, const UTMBox& utm_box_user, vector<Vector3d>* points_utm, const UTMBox& utm_box_raw, const string& utm_file_name, const string& ecef_file_name, const string& user_file_name) {
+	if (import_user_points_) {
+		cout << "About to import stereo raster points." << endl;
+		ifstream istream_user;
+		istream_user.open(user_file_name);
+		double x, y, z;
+		while (istream_user >> x >> y >> z) {
+			points_utm->emplace_back(x, y, z);
 		}
-		const stereo_export::Vector3d& center = stereo_raster_points.center();
-		int index_point = 0;
-		bool first_row = false;
-		bool last_row = false;
-		bool first_col = false;
-		bool last_col = false;
-		for (int row = 0; row < stereo_raster_points.h(); ++row) {
-			for (int col = 0; col < stereo_raster_points.w(); ++col) {
-				const stereo_export::Vector3f& offset = stereo_raster_points.points(index_point);
-				const Eigen::Vector3d ecef_point(center.x() + offset.x(), center.y() + offset.y(), center.z() + offset.z());
-				double utm_x;
-				double utm_y;
-				double utm_z;
-				string utm_zone;
-				EcefToUTM(ecef_point.x(), ecef_point.y(), ecef_point.z(), &utm_x, &utm_y, &utm_z, &utm_zone);
-				if (utm_box_raw.Contains(utm_x, utm_y, utm_zone)) {
-					if (row == 0) {
-						first_row = true;
-					}
-					if (row == stereo_raster_points.h() - 1) {
-						last_row = true;
-					}
-					if (col == 0) {
-						first_col = true;
-					}
-					if (col == stereo_raster_points.w() - 1) {
-						last_col = true;
-					}
-					if (export_raw_points_) {
-						ostream_utm << setprecision(8) << fixed << utm_x << " " << utm_y << " " << utm_z << endl;
-						ostream_ecef << setprecision(8) << fixed << ecef_point.x() << " " << ecef_point.y() << " " << ecef_point.z() << endl;
-					}
-				}
-				if (utm_box_user.Contains(utm_x, utm_y, utm_zone)) {
-					points_utm->emplace_back(utm_x, utm_y, utm_z);
-				}
-				++index_point;
+		istream_user.close();
+		return vector<StereoRaster>();
+	} else {
+		cout << "About to parse " << stereo_rasters.size() << " stereo rasters." << endl;
+		ofstream ostream_utm;
+		ofstream ostream_ecef;
+		ofstream ostream_user;
+		if (export_raw_points_) {
+			ostream_utm.open(utm_file_name);
+			ostream_ecef.open(ecef_file_name);
+		}
+		if (export_user_points_) {
+			ostream_user.open(user_file_name);
+		}
+		vector<StereoRaster> vector_stereo_raster;
+		for (int index_stereo_raster = 0; index_stereo_raster < stereo_rasters.size(); ++index_stereo_raster) {
+			cout << "Parsing stereo raster #" << index_stereo_raster << endl;
+			const stereo_export::StereoRasterMetadata& metadata = stereo_rasters.Get(index_stereo_raster);
+			StereoRaster stereo_raster;
+			stereo_raster.file_path = metadata.stereo_raster_path();
+			const stereo_export::StereoRasterPoints stereo_raster_points = ParseStereoRasterPoints(metadata.stereo_raster_path());
+			if (stereo_raster_points.w() * stereo_raster_points.h() != stereo_raster_points.points_size()) {
+				cout << "Wrong size of stereo raster points!" << endl;
+				throw std::exception();
 			}
+			const stereo_export::Vector3d& center = stereo_raster_points.center();
+			int index_point = 0;
+			bool first_row = false;
+			bool last_row = false;
+			bool first_col = false;
+			bool last_col = false;
+			for (int row = 0; row < stereo_raster_points.h(); ++row) {
+				for (int col = 0; col < stereo_raster_points.w(); ++col) {
+					const stereo_export::Vector3f& offset = stereo_raster_points.points(index_point);
+					const Eigen::Vector3d ecef_point(center.x() + offset.x(), center.y() + offset.y(), center.z() + offset.z());
+					double utm_x;
+					double utm_y;
+					double utm_z;
+					string utm_zone;
+					EcefToUTM(ecef_point.x(), ecef_point.y(), ecef_point.z(), &utm_x, &utm_y, &utm_z, &utm_zone);
+					if (utm_box_raw.Contains(utm_x, utm_y, utm_zone)) {
+						if (row == 0) {
+							first_row = true;
+						}
+						if (row == stereo_raster_points.h() - 1) {
+							last_row = true;
+						}
+						if (col == 0) {
+							first_col = true;
+						}
+						if (col == stereo_raster_points.w() - 1) {
+							last_col = true;
+						}
+						if (export_raw_points_) {
+							ostream_utm << setprecision(8) << fixed << utm_x << " " << utm_y << " " << utm_z << endl;
+							ostream_ecef << setprecision(8) << fixed << ecef_point.x() << " " << ecef_point.y() << " " << ecef_point.z() << endl;
+						}
+					}
+					if (utm_box_user.Contains(utm_x, utm_y, utm_zone)) {
+						points_utm->emplace_back(utm_x, utm_y, utm_z);
+						if (export_user_points_) {
+							ostream_user << setprecision(8) << fixed << utm_x << " " << utm_y << " " << utm_z << endl;
+						}
+					}
+					++index_point;
+				}
+			}
+			if (!first_row || !last_row || !first_col || !last_col) {
+				cout << "Stereo raster points can be cropped!" << endl;
+				throw std::exception();
+			}
+			vector_stereo_raster.emplace_back(stereo_raster);
 		}
-		if (!first_row || !last_row || !first_col || !last_col) {
-			cout << "Stereo raster points can be cropped!" << endl;
+		if (vector_stereo_raster.size() != stereo_rasters.size()) {
+			cout << "Stereo raster size error!" << endl;
 			throw std::exception();
 		}
-		vector_stereo_raster.emplace_back(stereo_raster);
+		if (export_raw_points_) {
+			ostream_utm.close();
+			ostream_ecef.close();
+		}
+		if (export_user_points_) {
+			ostream_user.close();
+		}
+		return vector_stereo_raster;
 	}
-	if (vector_stereo_raster.size() != stereo_rasters.size()) {
-		cout << "Stereo raster size error!" << endl;
-		throw std::exception();
-	}
-	return vector_stereo_raster;
 }
 
 vector<ImageCamera> DataParser::ParseImageCameras(const google::protobuf::RepeatedPtrField<stereo_export::ImageCameraMetadata>& image_cameras) {
@@ -196,7 +222,7 @@ stereo_export::StereoRasterPoints DataParser::ParseStereoRasterPoints(const stri
 	return stereo_raster_points;
 }
 
-Dataset DataParser::ParseDataset(const stereo_export::DatasetMetadata& dataset_metadata, const string& utm_file_name, const string& ecef_file_name) {
+Dataset DataParser::ParseDataset(const stereo_export::DatasetMetadata& dataset_metadata, const string& utm_file_name, const string& ecef_file_name, const string& user_file_name) {
 	double utm_x, utm_y;
 	string utm_zone;
 	LatLngToUTM(dataset_metadata.latitude_degrees(), dataset_metadata.longitude_degrees(), &utm_x, &utm_y, &utm_zone);
@@ -206,9 +232,9 @@ Dataset DataParser::ParseDataset(const stereo_export::DatasetMetadata& dataset_m
 	Dataset dataset;
 	UTMBox utm_box_raw = ComputeUTMBox(utm_x, utm_y, utm_zone, dataset_metadata.radius_meters());
 	UTMBox utm_box_user = ComputeUTMBox(utm_x, utm_y, utm_zone, radius_);
-	dataset.utm_reference_point = Point3d(utm_x, utm_y, 0.0);
-//	dataset.utm_box = utm_box_user;
-	dataset.stereo_rasters = ParseStereoRasters(dataset_metadata.stereo_raster(), utm_box_user, &(dataset.points_utm), utm_box_raw, utm_file_name, ecef_file_name);
+	dataset.utm_reference_point = Vector3d(utm_x, utm_y, 0.0);
+	dataset.utm_box = utm_box_user;
+	dataset.stereo_rasters = ParseStereoRasters(dataset_metadata.stereo_raster(), utm_box_user, &(dataset.points_utm), utm_box_raw, utm_file_name, ecef_file_name, user_file_name);
 	dataset.image_cameras = ParseImageCameras(dataset_metadata.image_camera());
 	return dataset;
 }
@@ -218,7 +244,10 @@ vector<Dataset> DataParser::ParseDatasets(const stereo_export::Metadata& metadat
 	vector<Dataset> datasets;
 	for (int dataset_index = 0; dataset_index < metadata.dataset_size(); ++dataset_index) {
 		cout << "Parsing Dataset #" << dataset_index << endl;
-		datasets.emplace_back(ParseDataset(metadata.dataset(dataset_index), export_directory_ + NumberToString(dataset_index) + "/utm.xyz", export_directory_ + NumberToString(dataset_index) + "/ecef.xyz"));
+		datasets.emplace_back(ParseDataset(metadata.dataset(dataset_index),
+			export_directory_ + NumberToString(dataset_index) + "/utm.xyz",
+			export_directory_ + NumberToString(dataset_index) + "/ecef.xyz",
+			export_directory_ + NumberToString(dataset_index) + "/user.xyz"));
 	}
 	if (datasets.size() != metadata.dataset_size()) {
 		cout << "Dataset size error!" << endl;
