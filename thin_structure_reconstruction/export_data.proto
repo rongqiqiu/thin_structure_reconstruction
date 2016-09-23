@@ -1,0 +1,111 @@
+syntax = "proto2";
+
+package stereo_export;
+
+message Vector3d {
+  optional double x = 1;
+  optional double y = 2;
+  optional double z = 3;
+};
+
+message Vector3f {
+  optional float x = 1;
+  optional float y = 2;
+  optional float z = 3;
+};
+
+message Matrix3x3d {
+  optional double e00 = 1;
+  optional double e01 = 2;
+  optional double e02 = 3;
+  optional double e10 = 4;
+  optional double e11 = 5;
+  optional double e12 = 6;
+  optional double e20 = 7;
+  optional double e21 = 8;
+  optional double e22 = 9;
+};
+
+message Vector2i {
+  optional int32 x = 1;
+  optional int32 y = 2;
+};
+
+message HalfOpenBox2i {
+  optional Vector2i box_min = 1;
+  optional Vector2i box_max = 2;
+};
+
+// Stereo raster points organized as w x h array of points in ECEF coords.
+// 'Points' are stored as offsets relative to reference point 'center'.
+// 'Points' have w*h elements stored sequentially in a row-major order.
+message StereoRasterPoints {
+  required int32 w = 1;
+  required int32 h = 2;
+  required Vector3d center = 3;
+  repeated Vector3f points = 4;
+};
+
+// Simple camera model with radial distortion.
+// Project point_in_world (a 3D point in ECEF coords) to image pixel coords as
+// follows:
+// 1. undistorted_point_in_camera (c_x, c_y, c_z) = R * point_in_world + T
+// 2. undistorted_point_in_image (i_x, i_y) = (c_x/z_c, c_y/c_z)
+// 3. distorted_point_in_image (d_x, d_y) = (1 + k1*r^2 + k2*r^4) * (i_x, i_y)
+// (where r^2 = x^2 + y^2)
+// 4. distorted_point_in_pixel (p_x, p_y) = (fx*d_x + fs*d_y+cx, fy*d_y+cy)
+// Resulting floating-point pixel value is interpreted as follows:
+// (0.0, 0.0) refers to the *center* of the UL pixel, and (w-1, h-1) is the
+// *center* of LR pixel.
+message CameraModel {
+  optional Matrix3x3d r = 1;  // Rotation from world to camera frame
+  optional Vector3d t = 2;    // Translation from world to camera frame
+  optional double k1 = 3;     // 2nd-order radial distortion coefficient
+  optional double k2 = 4;     // 4th-order radial distortion coefficient
+  optional double fx =
+      5;  // Focal length of the camera in pixels in the x direction
+  optional double fy =
+      6;  // Focal length of the camera in pixels in the y direction
+  optional double fs = 7;  // Focal length skew in pixels
+  optional double cx = 8;  // Principal point in the x direction in pixels
+  optional double cy = 9;  // Principal point in the y direction in pixels
+};
+
+// Metadata associated with each image and camera model.
+// 'Image_path' is relative to the root export directory.
+// 'Image_id' is used to uniquely identify an image.
+// Exported image has the same size as 'bounds' indicate.
+// 'Camera_model' projects 3D ECEF points to pixel coords of the original image.
+message ImageCameraMetadata {
+  optional string image_path = 1;
+  optional string image_id = 2;
+  optional Vector2i original_size = 3;
+  optional HalfOpenBox2i bounds = 4;
+  optional CameraModel camera_model = 5;
+};
+
+// Metadata associated with each stereo raster.
+// 'Stereo_raster_path' is relative to the root export directory.
+// A stereo raster represents a depthmap associated with part of an image whose
+// id is 'image_id'. The points on the raster do *not* correspond to pixels in
+// the source image.
+message StereoRasterMetadata {
+  optional string stereo_raster_path = 1;
+  optional string image_id = 2;
+};
+
+// Metadata associated with each dataset.
+// Latitude, longitude (in degrees) and radius (in meters) define the input
+// region of interest.
+message DatasetMetadata {
+  optional double latitude_degrees = 1;
+  optional double longitude_degrees = 2;
+  optional double radius_meters = 3;
+  repeated ImageCameraMetadata image_camera = 4;
+  repeated StereoRasterMetadata stereo_raster = 5;
+};
+
+// Metadata associated with all datasets.
+message Metadata {
+  repeated DatasetMetadata dataset = 1;
+};
