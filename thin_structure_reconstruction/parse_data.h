@@ -3,10 +3,10 @@
 
 #include "basic_types.h"
 #include "export_data.pb.h"
-#include "geodetic_converter.h"
-#include "utm.h"
 
 #include <Eigen/Dense>
+#include <geo/utm.h>
+#include <geo/geodetic_converter.h>
 #include <google/protobuf/text_format.h>
 #include <google/protobuf/message_lite.h>
 #include <opencv2/core/core.hpp>

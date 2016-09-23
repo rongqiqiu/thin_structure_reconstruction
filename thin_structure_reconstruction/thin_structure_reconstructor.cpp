@@ -34,7 +34,7 @@ void ThinStructureReconstructor::ExportRawPoints() {
 }
 
 double ThinStructureReconstructor::ComputeStandardDeviation(const int& index, const vector<int>& pointIdx, const int& dimension) {
-	
+	return 0.0;
 }
 
 Vector3d ThinStructureReconstructor::ComputePCAValue(const int& index, const vector<int>& pointIdx) {

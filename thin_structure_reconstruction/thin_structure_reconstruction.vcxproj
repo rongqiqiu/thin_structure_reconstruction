@@ -95,10 +95,8 @@
   <ItemGroup>
     <ClInclude Include="basic_types.h" />
     <ClInclude Include="export_data.pb.h" />
-    <ClInclude Include="geodetic_converter.h" />
     <ClInclude Include="parse_data.h" />
     <ClInclude Include="thin_structure_reconstructor.h" />
-    <ClInclude Include="utm.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
