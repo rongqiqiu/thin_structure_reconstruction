@@ -42,9 +42,9 @@ private:
 	vector<int> index_pca_filtered_;
 	pcl::PointCloud<pcl::PointXYZ> point_cloud_pca_filtered_;
 	vector<CylinderPrimitive> cylinder_hypotheses_;
-	double ComputeMean(const int& index, const vector<int>& pointIdx, const int& dimension);
-	double ComputeStandardDeviation(const int& index, const vector<int>& pointIdx, const int& dimension);
-	Vector3d ComputePCAValue(const int& index, const vector<int>& pointIdx);
+	double ComputeMean(const vector<int>& pointIdx, const int& dimension);
+	double ComputeStandardDeviation(const vector<int>& pointIdx, const int& dimension);
+	Vector3d ComputePCAValue(const vector<int>& pointIdx);
 };
 
 #endif

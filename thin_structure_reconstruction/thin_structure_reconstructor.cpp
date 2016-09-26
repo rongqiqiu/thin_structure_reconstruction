@@ -45,9 +45,11 @@ double ThinStructureReconstructor::ComputeMean(const vector<int>& pointIdx, cons
 double ThinStructureReconstructor::ComputeStandardDeviation(const vector<int>& pointIdx, const int& dimension) {
 	double standard_deviation = 0.0;
 	for (int idx = 0; idx < pointIdx.size(); ++idx) {
-		standard_deviation += point_cloud_.points[idx].data[dimension] - ComputeMean(pointIdx, dimension);
+		const double diff = point_cloud_.points[idx].data[dimension] - ComputeMean(pointIdx, dimension);
+		standard_deviation += diff * diff;
 	}
-	return 0.0;
+	standard_deviation /= pointIdx.size();
+	return standard_deviation;
 }
 
 Vector3d ThinStructureReconstructor::ComputePCAValue(const vector<int>& pointIdx) {
@@ -61,22 +63,40 @@ Vector3d ThinStructureReconstructor::ComputePCAValue(const vector<int>& pointIdx
 
 void ThinStructureReconstructor::ComputePCAValues() {
 	pca_values_.clear();
+	cout << "Computing PCA values" << endl;
 	pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
 	kdtree.setInputCloud(point_cloud_.makeShared());
+	cout << "Kd-tree is set up" << endl;
 	for (int index = 0; index < point_cloud_.points.size(); ++index) {
+		if (index % 100 == 0) {
+			cout << "Computing " << index << " out of " << point_cloud_.points.size() << endl;
+		}
 		const pcl::PointXYZ& point = point_cloud_.points[index];
 		vector<int> pointIdx;
 		vector<float> pointSquaredDistance;
-		kdtree.radiusSearch(point, 1.0, pointIdx, pointSquaredDistance);
-		pca_values_.push_back(ComputePCAValue(index, pointIdx));
+		kdtree.radiusSearch(point, 3.0, pointIdx, pointSquaredDistance);
+		pca_values_.push_back(ComputePCAValue(pointIdx));
 	}
-	ofstream out_stream;
-	out_stream.open(export_directory_ + "pca.dat");
-	for (int index = 0; index < point_cloud_.points.size(); ++index) {
-		const Vector3d& pca_value(pca_values_[index]);
-		out_stream << setprecision(2) << fixed << pca_value.x << " " << pca_value.y << " " << pca_value.z << endl;
+	{
+		ofstream out_stream;
+		out_stream.open(export_directory_ + "pca.dat");
+		for (int index = 0; index < point_cloud_.points.size(); ++index) {
+			const Vector3d& pca_value(pca_values_[index]);
+			out_stream << setprecision(2) << fixed << pca_value.x << " " << pca_value.y << " " << pca_value.z << endl;
+		}
+		out_stream.close();
 	}
-	out_stream.close();
+	{
+		ofstream out_stream;
+		out_stream.open(export_directory_ + "points_pca.xyz");
+		for (int index = 0; index < point_cloud_.points.size(); ++index) {
+			const pcl::PointXYZ& point = point_cloud_.points[index];
+			const Vector3d& pca_value(pca_values_[index]);
+			out_stream << setprecision(8) << fixed << point.x << " " << point.y << " " << point.z << " ";
+			out_stream << setprecision(2) << fixed << pca_value.x << " " << pca_value.y << " " << pca_value.z << endl;
+		}
+		out_stream.close();
+	}
 }
 
 void ThinStructureReconstructor::LoadPCAValues() {
