@@ -33,14 +33,27 @@ void ThinStructureReconstructor::ExportRawPoints() {
 	out_stream.close();
 }
 
-double ThinStructureReconstructor::ComputeStandardDeviation(const int& index, const vector<int>& pointIdx, const int& dimension) {
+double ThinStructureReconstructor::ComputeMean(const vector<int>& pointIdx, const int& dimension) {
+	double mean = 0.0;
+	for (int idx = 0; idx < pointIdx.size(); ++idx) {
+		mean += point_cloud_.points[idx].data[dimension];
+	}
+	mean /= pointIdx.size();
+	return mean;
+}
+
+double ThinStructureReconstructor::ComputeStandardDeviation(const vector<int>& pointIdx, const int& dimension) {
+	double standard_deviation = 0.0;
+	for (int idx = 0; idx < pointIdx.size(); ++idx) {
+		standard_deviation += point_cloud_.points[idx].data[dimension] - ComputeMean(pointIdx, dimension);
+	}
 	return 0.0;
 }
 
-Vector3d ThinStructureReconstructor::ComputePCAValue(const int& index, const vector<int>& pointIdx) {
+Vector3d ThinStructureReconstructor::ComputePCAValue(const vector<int>& pointIdx) {
 	Eigen::Vector3d pca_value;
 	for (int dimension = 0; dimension < 3; ++dimension) {
-		pca_value(dimension) = ComputeStandardDeviation(index, pointIdx, dimension);
+		pca_value(dimension) = ComputeStandardDeviation(pointIdx, dimension);
 	}
 	pca_value /= pca_value.maxCoeff();
 	return Vector3d(pca_value);
