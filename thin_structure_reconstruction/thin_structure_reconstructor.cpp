@@ -23,14 +23,31 @@ void ThinStructureReconstructor::ParseDataset() {
 	point_cloud_ = VectorVector3dToPointCloud(dataset_.points_utm, reference_point_);
 }
 
-void ThinStructureReconstructor::ExportRawPoints() {
+void ThinStructureReconstructor::ExportPointCloud(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const string& file_name) {
 	ofstream out_stream;
-	out_stream.open(export_directory_ + "raw_pc.dat");
-	for (int index = 0; index < point_cloud_.points.size(); ++index) {
-		const pcl::PointXYZ& point = point_cloud_.points[index];
+	out_stream.open(export_directory_ + file_name);
+	for (int index = 0; index < point_cloud.points.size(); ++index) {
+		const pcl::PointXYZ& point = point_cloud.points[index];
 		out_stream << setprecision(8) << fixed << point.x << " " << point.y << " " << point.z << endl;
 	}
 	out_stream.close();
+}
+
+pcl::PointCloud<pcl::PointXYZ> ThinStructureReconstructor::ImportPointCloud(const string& file_name) {
+	pcl::PointCloud<pcl::PointXYZ> point_cloud;
+	ifstream in_stream;
+	in_stream.open(export_directory_ + file_name);
+	double x, y, z;
+	while (in_stream >> x >> y >> z) {
+		point_cloud.points.emplace_back(x, y, z);
+	}
+	point_cloud.width = point_cloud.points.size();
+	point_cloud.height = 1;
+	in_stream.close();
+}
+
+void ThinStructureReconstructor::ExportRawPoints() {
+	ExportPointCloud(point_cloud_, "raw_pc.xyz");
 }
 
 double ThinStructureReconstructor::ComputeMean(const vector<int>& pointIdx, const int& dimension) {
@@ -73,6 +90,7 @@ void ThinStructureReconstructor::ApplyRandomSubsampling(const double& sampling_r
 	}
 	point_cloud_subsampled_.width = point_cloud_subsampled_.points.size();
 	point_cloud_subsampled_.height = 1;
+	ExportPointCloud(point_cloud_subsampled_, "subsampled.xyz");
 }
 
 void ThinStructureReconstructor::ComputePCAValues() {
@@ -116,6 +134,7 @@ void ThinStructureReconstructor::ComputePCAValues() {
 
 void ThinStructureReconstructor::LoadPCAValues() {
 	pca_values_.clear();
+	cout << "Loading PCA values" << endl;
 	ifstream in_stream;
 	in_stream.open(export_directory_ + "pca.dat");
 	double variation_x, variation_y, variation_z;
@@ -123,6 +142,29 @@ void ThinStructureReconstructor::LoadPCAValues() {
 		pca_values_.emplace_back(variation_x, variation_y, variation_z);
 	}
 	in_stream.close();
+}
+
+bool ThinStructureReconstructor::IsVerticalLinear(const Vector3d& pca_value, const double& threshold) {
+	return pca_value.x < threshold && pca_value.y < threshold && pca_value.z >= 1.0 - 1e-3;
+}
+
+void ThinStructureReconstructor::ComputeFilteredPoints() {
+	index_filtered_.clear();
+	point_cloud_filtered_.clear();
+	cout << "Computing filtered points" << endl;
+	for (int index = 0; index < point_cloud_.points.size(); ++index) {
+		if (IsVerticalLinear(pca_values_[index], 0.6)) {
+			index_filtered_.push_back(index);
+			point_cloud_filtered_.points.push_back(point_cloud_.points[index]);
+		}
+	}
+	point_cloud_filtered_.width = point_cloud_filtered_.points.size();
+	point_cloud_filtered_.height = 1;
+	ExportPointCloud(point_cloud_filtered_, "filtered.xyz");
+}
+
+void ThinStructureReconstructor::LoadFilteredPoints() {
+	point_cloud_filtered_ = ImportPointCloud("filtered.xyz");
 }
 
 void ThinStructureReconstructor::ComputeCylinderHypotheses() {

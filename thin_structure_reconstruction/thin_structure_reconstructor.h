@@ -32,6 +32,8 @@ public:
 	void ExportRawPoints();
 	void ComputePCAValues();
 	void LoadPCAValues();
+	void ComputeFilteredPoints();
+	void LoadFilteredPoints();
 	void ComputeCylinderHypotheses();
 private:
 	string export_directory_;
@@ -40,13 +42,16 @@ private:
 	pcl::PointCloud<pcl::PointXYZ> point_cloud_;
 	pcl::PointCloud<pcl::PointXYZ> point_cloud_subsampled_;
 	vector<Vector3d> pca_values_;
-	vector<int> index_pca_filtered_;
-	pcl::PointCloud<pcl::PointXYZ> point_cloud_pca_filtered_;
+	vector<int> index_filtered_;
+	pcl::PointCloud<pcl::PointXYZ> point_cloud_filtered_;
 	vector<CylinderPrimitive> cylinder_hypotheses_;
+	void ExportPointCloud(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const string& file_name);
+	void ImportPointCloud(const string& file_name, pcl::PointCloud<pcl::PointXYZ>* point_cloud);
 	void ApplyRandomSubsampling(const double& sampling_ratio);
 	double ComputeMean(const vector<int>& pointIdx, const int& dimension);
 	double ComputeStandardDeviation(const vector<int>& pointIdx, const int& dimension);
 	Vector3d ComputePCAValue(const vector<int>& pointIdx);
+	bool IsVerticalLinear(const Vector3d& pca_value, const double& threshold);
 };
 
 #endif
