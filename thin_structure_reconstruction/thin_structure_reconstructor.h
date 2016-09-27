@@ -38,10 +38,12 @@ private:
 	Dataset dataset_;
 	Vector3d reference_point_;
 	pcl::PointCloud<pcl::PointXYZ> point_cloud_;
+	pcl::PointCloud<pcl::PointXYZ> point_cloud_subsampled_;
 	vector<Vector3d> pca_values_;
 	vector<int> index_pca_filtered_;
 	pcl::PointCloud<pcl::PointXYZ> point_cloud_pca_filtered_;
 	vector<CylinderPrimitive> cylinder_hypotheses_;
+	void ApplyRandomSubsampling(const double& sampling_ratio);
 	double ComputeMean(const vector<int>& pointIdx, const int& dimension);
 	double ComputeStandardDeviation(const vector<int>& pointIdx, const int& dimension);
 	Vector3d ComputePCAValue(const vector<int>& pointIdx);

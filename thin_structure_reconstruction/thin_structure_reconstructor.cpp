@@ -36,7 +36,7 @@ void ThinStructureReconstructor::ExportRawPoints() {
 double ThinStructureReconstructor::ComputeMean(const vector<int>& pointIdx, const int& dimension) {
 	double mean = 0.0;
 	for (int idx = 0; idx < pointIdx.size(); ++idx) {
-		mean += point_cloud_.points[idx].data[dimension];
+		mean += point_cloud_subsampled_.points[pointIdx[idx]].data[dimension];
 	}
 	mean /= pointIdx.size();
 	return mean;
@@ -44,11 +44,13 @@ double ThinStructureReconstructor::ComputeMean(const vector<int>& pointIdx, cons
 
 double ThinStructureReconstructor::ComputeStandardDeviation(const vector<int>& pointIdx, const int& dimension) {
 	double standard_deviation = 0.0;
+	double mean = ComputeMean(pointIdx, dimension);
 	for (int idx = 0; idx < pointIdx.size(); ++idx) {
-		const double diff = point_cloud_.points[idx].data[dimension] - ComputeMean(pointIdx, dimension);
+		const double diff = point_cloud_subsampled_.points[pointIdx[idx]].data[dimension] - mean;
 		standard_deviation += diff * diff;
 	}
 	standard_deviation /= pointIdx.size();
+	standard_deviation = sqrt(standard_deviation);
 	return standard_deviation;
 }
 
@@ -61,11 +63,24 @@ Vector3d ThinStructureReconstructor::ComputePCAValue(const vector<int>& pointIdx
 	return Vector3d(pca_value);
 }
 
+void ThinStructureReconstructor::ApplyRandomSubsampling(const double& sampling_ratio) {
+	for (int index = 0; index < point_cloud_.points.size(); ++index) {
+		double random_number = ((double) rand()) / RAND_MAX;
+		if (random_number < sampling_ratio) {
+			const pcl::PointXYZ& point = point_cloud_.points[index];
+			point_cloud_subsampled_.points.push_back(point);
+		}
+	}
+	point_cloud_subsampled_.width = point_cloud_subsampled_.points.size();
+	point_cloud_subsampled_.height = 1;
+}
+
 void ThinStructureReconstructor::ComputePCAValues() {
 	pca_values_.clear();
 	cout << "Computing PCA values" << endl;
+	ApplyRandomSubsampling(0.2);
 	pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
-	kdtree.setInputCloud(point_cloud_.makeShared());
+	kdtree.setInputCloud(point_cloud_subsampled_.makeShared());
 	cout << "Kd-tree is set up" << endl;
 	for (int index = 0; index < point_cloud_.points.size(); ++index) {
 		if (index % 100 == 0) {
