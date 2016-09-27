@@ -29,11 +29,14 @@ public:
 	void SetExportDirectory(const string& export_directory) {
 		export_directory_ = export_directory;
 	}
+	void ExportReferencePoint();
 	void ExportRawPoints();
 	void ComputePCAValues();
 	void LoadPCAValues();
 	void ComputeFilteredPoints();
 	void LoadFilteredPoints();
+	void ComputeRANSAC();
+	void LoadRANSAC();
 	void ComputeCylinderHypotheses();
 private:
 	string export_directory_;
@@ -52,6 +55,10 @@ private:
 	double ComputeStandardDeviation(const vector<int>& pointIdx, const int& dimension);
 	Vector3d ComputePCAValue(const vector<int>& pointIdx);
 	bool IsVerticalLinear(const Vector3d& pca_value, const double& threshold);
+	CylinderPrimitive ComputeCylinder(const vector<int>& pointIdx);
+	void ExportCylinderPrimitives(const vector<CylinderPrimitive>& cylinders);
+	void ExportCylinderMeshes(const vector<CylinderPrimitive>& cylinders);
+	vector<CylinderPrimitive> ImportCylinderPrimitives();
 };
 
 #endif

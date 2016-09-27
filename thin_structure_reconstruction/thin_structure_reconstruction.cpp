@@ -35,13 +35,16 @@ int main() {
 	const Dataset& dataset = datasets[1];
 
 	ThinStructureReconstructor reconstructor(dataset, export_directory);
+	reconstructor.ExportReferencePoint();
 	//reconstructor.ExportRawPoints();
 
 	//reconstructor.ComputePCAValues();
 	reconstructor.LoadPCAValues();
 
-	reconstructor.ComputeFilteredPoints();
-	//reconstructor.LoadFilteredPoints();
+	//reconstructor.ComputeFilteredPoints();
+	reconstructor.LoadFilteredPoints();
+
+	reconstructor.ComputeRANSAC();
 
 	//pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
 	//Eigen::Vector2d projected_pixel = camera_model.Project(feature_point);

@@ -69,9 +69,9 @@ private:
 	double radius_;
 	stereo_export::Metadata ParseMetadata();
 	stereo_export::StereoRasterPoints ParseStereoRasterPoints(const string& relative_path);
-	Dataset ParseDataset(const stereo_export::DatasetMetadata& dataset_metadata, const string& utm_file_name, const string& ecef_file_name, const string& user_file_name);
+	Dataset ParseDataset(const stereo_export::DatasetMetadata& dataset_metadata, const string& raw_utm_file_name, const string& raw_ecef_file_name, const string& user_utm_file_name, const string& user_ecef_file_name);
 	vector<Dataset> ParseDatasets(const stereo_export::Metadata& metadata);
-	vector<StereoRaster> ParseStereoRasters(const google::protobuf::RepeatedPtrField<stereo_export::StereoRasterMetadata>& stereo_rasters, const UTMBox& utm_box_user, vector<Vector3d>* points_utm, const UTMBox& utm_box_raw, const string& utm_file_name, const string& ecef_file_name, const string& user_file_name);
+	vector<StereoRaster> ParseStereoRasters(const google::protobuf::RepeatedPtrField<stereo_export::StereoRasterMetadata>& stereo_rasters, const UTMBox& utm_box_user, vector<Vector3d>* points_utm, const UTMBox& utm_box_raw, const string& raw_utm_file_name, const string& raw_ecef_file_name, const string& user_utm_file_name, const string& user_ecef_file_name);
 	vector<ImageCamera> ParseImageCameras(const google::protobuf::RepeatedPtrField<stereo_export::ImageCameraMetadata>& image_cameras);
 };
 

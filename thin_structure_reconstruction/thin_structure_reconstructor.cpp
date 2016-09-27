@@ -33,6 +33,15 @@ void ThinStructureReconstructor::ExportPointCloud(const pcl::PointCloud<pcl::Poi
 	out_stream.close();
 }
 
+void ThinStructureReconstructor::ExportCylinderPrimitives(const vector<CylinderPrimitive>& cylinders) {
+}
+
+void ThinStructureReconstructor::ExportCylinderMeshes(const vector<CylinderPrimitive>& cylinders) {
+}
+
+vector<CylinderPrimitive> ThinStructureReconstructor::ImportCylinderPrimitives() {
+}
+
 pcl::PointCloud<pcl::PointXYZ> ThinStructureReconstructor::ImportPointCloud(const string& file_name) {
 	pcl::PointCloud<pcl::PointXYZ> point_cloud;
 	ifstream in_stream;
@@ -44,6 +53,14 @@ pcl::PointCloud<pcl::PointXYZ> ThinStructureReconstructor::ImportPointCloud(cons
 	point_cloud.width = point_cloud.points.size();
 	point_cloud.height = 1;
 	in_stream.close();
+	return point_cloud;
+}
+
+void ThinStructureReconstructor::ExportReferencePoint() {
+	ofstream out_stream;
+	out_stream.open(export_directory_ + "reference_point.xyz");
+	out_stream << setprecision(8) << fixed << reference_point_.x << " " << reference_point_.y << " " << reference_point_.z << endl;
+	out_stream.close();
 }
 
 void ThinStructureReconstructor::ExportRawPoints() {
@@ -180,6 +197,39 @@ void ThinStructureReconstructor::ComputeFilteredPoints() {
 
 void ThinStructureReconstructor::LoadFilteredPoints() {
 	point_cloud_filtered_ = ImportPointCloud("filtered.xyz");
+}
+
+CylinderPrimitive ThinStructureReconstructor::ComputeCylinder(const vector<int>& pointIdx) {
+}
+
+void ThinStructureReconstructor::ComputeRANSAC() {
+	cylinder_hypotheses_.clear();
+	pcl::PointCloud<pcl::PointXYZ> point_cloud_remaining = point_cloud_filtered_;
+	while (true) {
+		pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
+		kdtree.setInputCloud(point_cloud_remaining.makeShared());
+		int bestIdx = -1;
+		vector<int> bestPointIdx;
+		for (int index = 0; index < point_cloud_filtered_.points.size(); ++index) {
+			vector<int> pointIdx;
+			vector<float> pointSquaredDistance;
+			kdtree.radiusSearch(point_cloud_filtered_.points[index], 1.0, pointIdx, pointSquaredDistance);
+			if (pointIdx.size() > bestPointIdx.size()) {
+				bestIdx = index;
+				bestPointIdx = pointIdx;
+			}
+		}
+		if (bestIdx < 0 || bestPointIdx.size() < 100) {
+			break;
+		}
+		cylinder_hypotheses_.push_back(ComputeCylinder(bestPointIdx));
+	}
+	ExportCylinderPrimitives(cylinder_hypotheses_);
+	ExportCylinderMeshes(cylinder_hypotheses_);
+}
+
+void ThinStructureReconstructor::LoadRANSAC() {
+	cylinder_hypotheses_ = ImportCylinderPrimitives();
 }
 
 void ThinStructureReconstructor::ComputeCylinderHypotheses() {
