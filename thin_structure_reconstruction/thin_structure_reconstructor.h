@@ -46,7 +46,7 @@ private:
 	pcl::PointCloud<pcl::PointXYZ> point_cloud_filtered_;
 	vector<CylinderPrimitive> cylinder_hypotheses_;
 	void ExportPointCloud(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const string& file_name);
-	void ImportPointCloud(const string& file_name, pcl::PointCloud<pcl::PointXYZ>* point_cloud);
+	pcl::PointCloud<pcl::PointXYZ> ImportPointCloud(const string& file_name);
 	void ApplyRandomSubsampling(const double& sampling_ratio);
 	double ComputeMean(const vector<int>& pointIdx, const int& dimension);
 	double ComputeStandardDeviation(const vector<int>& pointIdx, const int& dimension);

@@ -39,7 +39,7 @@ pcl::PointCloud<pcl::PointXYZ> ThinStructureReconstructor::ImportPointCloud(cons
 	in_stream.open(export_directory_ + file_name);
 	double x, y, z;
 	while (in_stream >> x >> y >> z) {
-		point_cloud.points.emplace_back(x, y, z);
+		point_cloud.points.push_back(pcl::PointXYZ(x, y, z));
 	}
 	point_cloud.width = point_cloud.points.size();
 	point_cloud.height = 1;
@@ -72,9 +72,16 @@ double ThinStructureReconstructor::ComputeStandardDeviation(const vector<int>& p
 }
 
 Vector3d ThinStructureReconstructor::ComputePCAValue(const vector<int>& pointIdx) {
+	if (pointIdx.empty()) {
+		return Vector3d(0.0, 0.0, 0.0);
+	}
 	Eigen::Vector3d pca_value;
 	for (int dimension = 0; dimension < 3; ++dimension) {
 		pca_value(dimension) = ComputeStandardDeviation(pointIdx, dimension);
+	}
+	const double max_coeff = pca_value.maxCoeff();
+	if (fabs(max_coeff) < 1e-6) {
+		return Vector3d(0.0, 0.0, 0.0); 
 	}
 	pca_value /= pca_value.maxCoeff();
 	return Vector3d(pca_value);
@@ -110,6 +117,10 @@ void ThinStructureReconstructor::ComputePCAValues() {
 		kdtree.radiusSearch(point, 3.0, pointIdx, pointSquaredDistance);
 		pca_values_.push_back(ComputePCAValue(pointIdx));
 	}
+	if (pca_values_.size() != point_cloud_.points.size()) {
+		cout << "PCA values size (" << pca_values_.size() << ") does not match with point cloud size (" << point_cloud_.points.size() << ")" << endl;
+		throw std::exception();
+	}
 	{
 		ofstream out_stream;
 		out_stream.open(export_directory_ + "pca.dat");
@@ -139,9 +150,13 @@ void ThinStructureReconstructor::LoadPCAValues() {
 	in_stream.open(export_directory_ + "pca.dat");
 	double variation_x, variation_y, variation_z;
 	while (in_stream >> variation_x >> variation_y >> variation_z) {
-		pca_values_.emplace_back(variation_x, variation_y, variation_z);
+		pca_values_.push_back(Vector3d(variation_x, variation_y, variation_z));
 	}
 	in_stream.close();
+	if (pca_values_.size() != point_cloud_.points.size()) {
+		cout << "PCA values size (" << pca_values_.size() << ") does not match with point cloud size (" << point_cloud_.points.size() << ")" << endl;
+		throw std::exception();
+	}
 }
 
 bool ThinStructureReconstructor::IsVerticalLinear(const Vector3d& pca_value, const double& threshold) {
