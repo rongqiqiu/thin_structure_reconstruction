@@ -3,7 +3,7 @@
 
 #include "basic_types.h"
 
-class CylinderPrimitive {
+struct CylinderPrimitive {
 	Vector3d pa, pb;
 	double r;
 };
@@ -55,12 +55,13 @@ private:
 	double ComputeStandardDeviation(const vector<int>& pointIdx, const int& dimension);
 	Vector3d ComputePCAValue(const vector<int>& pointIdx);
 	bool IsVerticalLinear(const Vector3d& pca_value, const double& threshold);
-	CylinderPrimitive ComputeVerticalLine(const vector<int>& pointIdx);
-	void ExportCylinderPrimitives(const vector<CylinderPrimitive>& cylinders);
-	void ExportCylinderMeshes(const vector<CylinderPrimitive>& cylinders);
-	vector<CylinderPrimitive> ImportCylinderPrimitives();
-	Vector3d ComputeXYCentroid(const vector<int>& pointIdx);
-	void ComputeExtents(const vector<int>& pointIdx, const Vector3d& axis, const Vector3d& point, double* min_dot, double* max_dot);
+	CylinderPrimitive ComputeVerticalLine(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const vector<int>& pointIdx);
+	void ExportCylinderPrimitives(const vector<CylinderPrimitive>& cylinders, const string& file_name);
+	void ExportCylinderMeshes(const vector<CylinderPrimitive>& cylinders, const string& file_name);
+	vector<CylinderPrimitive> ImportCylinderPrimitives(const string& file_name);
+	Vector3d ComputeXYCentroid(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const vector<int>& pointIdx);
+	void ComputeExtents(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const vector<int>& pointIdx, const Vector3d& axis, const Vector3d& point, double* min_dot, double* max_dot);
+	pcl::PointCloud<pcl::PointXYZ> ProjectXY(const pcl::PointCloud<pcl::PointXYZ>& input_cloud);
 };
 
 #endif
