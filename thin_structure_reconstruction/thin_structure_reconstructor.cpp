@@ -1,5 +1,7 @@
 #include "thin_structure_reconstructor.h"
 
+#include <Eigen/Geometry>
+
 #include <pcl/common/common_headers.h>
 #include <pcl/console/parse.h>
 #include <pcl/filters/extract_indices.h>
@@ -14,9 +16,12 @@
 #include <pcl/sample_consensus/model_types.h>
 #include <pcl/segmentation/sac_segmentation.h>
 
-#include <iostream>
+#include <algorithm>
 #include <fstream>
 #include <iomanip>
+#include <iostream>
+
+const double PI = acos(-1.0);
 
 void ThinStructureReconstructor::ParseDataset() {
 	reference_point_ = dataset_.utm_reference_point;
@@ -33,13 +38,56 @@ void ThinStructureReconstructor::ExportPointCloud(const pcl::PointCloud<pcl::Poi
 	out_stream.close();
 }
 
-void ThinStructureReconstructor::ExportCylinderPrimitives(const vector<CylinderPrimitive>& cylinders) {
+void ThinStructureReconstructor::ExportCylinderPrimitives(const vector<CylinderPrimitive>& cylinders, const string& file_name) {
+	ofstream out_stream;
+	out_stream.open(export_directory_ + file_name);
+	for (int index = 0; index < cylinders.size(); ++index) {
+		const CylinderPrimitive& cylinder = cylinders[index];
+		out_stream << setprecision(8) << fixed << cylinder.pa.x << " " << cylinder.pa.y << " " << cylinder.pa.z << " ";
+		out_stream << setprecision(8) << fixed << cylinder.pb.x << " " << cylinder.pb.y << " " << cylinder.pb.z << " ";
+		out_stream << setprecision(8) << fixed << cylinder.r << endl;
+	}
+	out_stream.close();
 }
 
-void ThinStructureReconstructor::ExportCylinderMeshes(const vector<CylinderPrimitive>& cylinders) {
+void ThinStructureReconstructor::ExportCylinderMeshes(const vector<CylinderPrimitive>& cylinders, const string& file_name) {
+	ofstream out_stream;
+	out_stream.open(export_directory_ + file_name);
+	int vertex_count = 0;
+	for (int index = 0; index < cylinders.size(); ++index) {
+		const CylinderPrimitive& cylinder = cylinders[index];
+		const Eigen::Vector3d dir_z = (cylinder.pb.ToEigenVector() - cylinder.pa.ToEigenVector()).normalized();
+		const Eigen::Vector3d dir_x = Eigen::Vector3d(1.0, 0.0, 0.0).cross(dir_z).normalized();
+		const Eigen::Vector3d dir_y = dir_z.cross(dir_x).normalized();
+		for (int subdivision_index = 0; subdivision_index < 16; ++subdivision_index) {
+			const angle = subdivision_index * PI * 2 / 16.0;
+			const Eigen::Vector3d vertex = cylinder.pa.ToEigenVector() + dir_x * cylinder.r * cos(angle) + dir_y * cylinder.r * sin(angle);
+			cout << setprecision(8) << fixed << "v " << vertex.x() << " " << vertex.y() << " " << vertex.z() << endl;
+		}
+		for (int subdivision_index = 0; subdivision_index < 16; ++subdivision_index) {
+			const angle = subdivision_index * PI * 2 / 16.0;
+			const Eigen::Vector3d vertex = cylinder.pb.ToEigenVector() + dir_x * cylinder.r * cos(angle) + dir_y * cylinder.r * sin(angle);
+			cout << setprecision(8) << fixed << "v " << vertex.x() << " " << vertex.y() << " " << vertex.z() << endl;
+		}
+		for (int subdivision_index = 0; subdivision_index < 16; ++subdivision_index) {
+			cout << "f " << vertex_count + subdivision_index + 1 << " " << vertex_count + subdivision_index + 2 << " " << vertex_count + subdivision_index + 17 << endl;
+			cout << "f " << vertex_count + subdivision_index + 2 << " " << vertex_count + subdivision_index + 18 << " " << vertex_count + subdivision_index + 17 << endl;
+		}
+		vertex_count += 16 * 2;
+	}
+	out_stream.close();
 }
 
-vector<CylinderPrimitive> ThinStructureReconstructor::ImportCylinderPrimitives() {
+vector<CylinderPrimitive> ThinStructureReconstructor::ImportCylinderPrimitives(const string& file_name) {
+	vector<CylinderPrimitive> cylinders;
+	ifstream in_stream;
+	in_stream.open(export_directory_ + file_name);
+	CylinderPrimitive cylinder;
+	while (in_stream >> cylinder.pa.x >> cylinder.pa.y >> cylinder.pa.z >> cylinder.pb.x >> cylinder.pb.y >> cylinder.pb.z >> cylinder.r) {
+		cylinders.push_back(cylinder);
+	}
+	in_stream.close();
+	return cylinders;
 }
 
 pcl::PointCloud<pcl::PointXYZ> ThinStructureReconstructor::ImportPointCloud(const string& file_name) {
@@ -199,7 +247,53 @@ void ThinStructureReconstructor::LoadFilteredPoints() {
 	point_cloud_filtered_ = ImportPointCloud("filtered.xyz");
 }
 
-CylinderPrimitive ThinStructureReconstructor::ComputeCylinder(const vector<int>& pointIdx) {
+Vector3d ThinStructureReconstructor::ComputeXYCentroid(const vector<int>& pointIdx) {
+	vector<double> x_values(pointIdx.size());
+	vector<double> y_values(pointIdx.size());
+	for (int index = 0; index < pointIdx.size(); ++index) {
+		x_values[index] = point_cloud_filtered_.points[pointIdx[index]].x;
+		y_values[index] = point_cloud_filtered_.points[pointIdx[index]].y;
+	}
+	sort(x_values.begin(), x_values.end());
+	sort(y_values.begin(), y_values.end());
+	Vector3d centroid;
+	if (pointIdx.size() % 2 == 0) {
+		centroid.x = (x_values[pointIdx.size() / 2 - 1] + x_values[pointIdx.size() / 2]) / 2.0;
+		centroid.y = (y_values[pointIdx.size() / 2 - 1] + y_values[pointIdx.size() / 2]) / 2.0;
+	} else {
+		centroid.x = x_values[pointIdx.size() / 2];
+		centroid.y = y_values[pointIdx.size() / 2];
+	}
+	centroid.z = 0.0;
+	return centroid;
+}
+
+void ThinStructureReconstructor::ComputeExtents(const vector<int>& pointIdx, const Vector3d& axis, const Vector3d& point, double* min_dot, double* max_dot) {
+	if (pointIdx.empty() || min_dot == NULL || max_dot == NULL) {
+		return;
+	}
+
+	for (int index = 0; index < pointIdx.size(); ++index) {
+		double dot = (Vector3d(point_cloud_filtered_.points[pointIdx[index]]).ToEigenVector() - point.ToEigenVector()) * axis.ToEigenVector();
+		if (index == 0 || dot < (*min_dot)) {
+			*min_dot = dot;
+		}
+		if (index == 0 || dot > (*max_dot)) {
+			*max_dot = dot;
+		}
+	}
+}
+
+CylinderPrimitive ThinStructureReconstructor::ComputeVerticalLine(const vector<int>& pointIdx) {
+	const Vector3d centroid = ComputeXYCentroid(pointIdx);
+	const Vector3d axis(0.0, 0.0, 1.0);
+	double min_height, max_height;
+	ComputeExtents(pointIdx, axis, centroid, &min_height, &max_height);
+	CylinderPrimitive cylinder;
+	cylinder.pa = centroid.ToEigenVector() + axis.ToEigenVector() * min_height;
+	cylinder.pb = centroid.ToEigenVector() + axis.ToEigenVector() * max_height;
+	cylinder.r = 1.0;
+	return cylinder;
 }
 
 void ThinStructureReconstructor::ComputeRANSAC() {
@@ -222,14 +316,14 @@ void ThinStructureReconstructor::ComputeRANSAC() {
 		if (bestIdx < 0 || bestPointIdx.size() < 100) {
 			break;
 		}
-		cylinder_hypotheses_.push_back(ComputeCylinder(bestPointIdx));
+		cylinder_hypotheses_.push_back(ComputeVerticalLine(bestPointIdx));
 	}
-	ExportCylinderPrimitives(cylinder_hypotheses_);
-	ExportCylinderMeshes(cylinder_hypotheses_);
+	ExportCylinderPrimitives(cylinder_hypotheses_, "cylinder_hypotheses.dat");
+	ExportCylinderMeshes(cylinder_hypotheses_, "cylinder_hypotheses.obj");
 }
 
 void ThinStructureReconstructor::LoadRANSAC() {
-	cylinder_hypotheses_ = ImportCylinderPrimitives();
+	cylinder_hypotheses_ = ImportCylinderPrimitives("cylinder_hypotheses.dat");
 }
 
 void ThinStructureReconstructor::ComputeCylinderHypotheses() {

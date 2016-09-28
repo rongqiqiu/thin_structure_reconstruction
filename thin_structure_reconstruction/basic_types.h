@@ -16,6 +16,8 @@ struct Vector3d {
 		: x(input_x), y(input_y), z(input_z) {}
 	Vector3d(const Eigen::Vector3d& eigen_vector)
 		: x(eigen_vector.x()), y(eigen_vector.y()), z(eigen_vector.z()) {}
+	Vector3d(const pcl::PointXYZ& point)
+		: x(point.x), y(point.y), z(point.z) {}
 	Eigen::Vector3d ToEigenVector() const {
 		return Eigen::Vector3d(x, y, z);
 	}

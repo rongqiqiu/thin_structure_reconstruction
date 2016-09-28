@@ -55,10 +55,12 @@ private:
 	double ComputeStandardDeviation(const vector<int>& pointIdx, const int& dimension);
 	Vector3d ComputePCAValue(const vector<int>& pointIdx);
 	bool IsVerticalLinear(const Vector3d& pca_value, const double& threshold);
-	CylinderPrimitive ComputeCylinder(const vector<int>& pointIdx);
+	CylinderPrimitive ComputeVerticalLine(const vector<int>& pointIdx);
 	void ExportCylinderPrimitives(const vector<CylinderPrimitive>& cylinders);
 	void ExportCylinderMeshes(const vector<CylinderPrimitive>& cylinders);
 	vector<CylinderPrimitive> ImportCylinderPrimitives();
+	Vector3d ComputeXYCentroid(const vector<int>& pointIdx);
+	void ComputeExtents(const vector<int>& pointIdx, const Vector3d& axis, const Vector3d& point, double* min_dot, double* max_dot);
 };
 
 #endif
