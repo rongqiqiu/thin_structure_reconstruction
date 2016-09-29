@@ -15,3 +15,20 @@ pcl::PointCloud<pcl::PointXYZ> VectorVector3dToPointCloud(const vector<Vector3d>
 	point_cloud.height = 1;
 	return point_cloud;
 }
+
+string NumberToString(const int& number) {
+	ostringstream oss;
+	oss << number;
+	return oss.str();
+}
+
+string ReadFileToString(const string& full_path) {
+	ifstream inf(full_path);
+	stringstream strStream;
+	strStream << inf.rdbuf();
+	return strStream.str();
+}
+
+int round(const double& number) {
+	return number + .5;
+}

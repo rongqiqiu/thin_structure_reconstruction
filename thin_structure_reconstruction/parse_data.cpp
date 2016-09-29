@@ -65,23 +65,6 @@ void EcefToUTM(const double& ecef_x, const double& ecef_y, const double& ecef_z,
 	}
 }
 
-string NumberToString(const int& number) {
-	ostringstream oss;
-	oss << number;
-	return oss.str();
-}
-
-string ReadFileToString(const string& full_path) {
-	ifstream inf(full_path);
-	stringstream strStream;
-	strStream << inf.rdbuf();
-	return strStream.str();
-}
-
-int round(const double& number) {
-	return number + .5;
-}
-
 vector<StereoRaster> DataParser::ParseStereoRasters(const google::protobuf::RepeatedPtrField<stereo_export::StereoRasterMetadata>& stereo_rasters, const UTMBox& utm_box_user, vector<Vector3d>* points_utm, const UTMBox& utm_box_raw, const string& raw_utm_file_name, const string& raw_ecef_file_name, const string& user_utm_file_name, const string& user_ecef_file_name) {
 	if (import_user_points_) {
 		cout << "About to import stereo raster points." << endl;

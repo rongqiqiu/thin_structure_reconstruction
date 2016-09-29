@@ -38,6 +38,7 @@ public:
 	void ComputeRANSAC();
 	void LoadRANSAC();
 	void ComputeCylinderHypotheses();
+	void ExportRawImages();
 private:
 	string export_directory_;
 	Dataset dataset_;

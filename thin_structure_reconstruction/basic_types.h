@@ -137,4 +137,8 @@ pcl::PointXYZ Vector3dToPointXYZ(const Vector3d& input_point, const Vector3d& re
 
 pcl::PointCloud<pcl::PointXYZ> VectorVector3dToPointCloud(const vector<Vector3d>& input_vector, const Vector3d& reference_point);
 
+string NumberToString(const int& number);
+string ReadFileToString(const string& relative_path);
+int round(const double& number);
+
 #endif

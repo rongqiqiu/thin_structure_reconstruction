@@ -83,8 +83,5 @@ ExportCameraModel ProtoToCameraModel(const stereo_export::CameraModel& input_cam
 UTMBox ComputeUTMBox(const double& utm_x, const double& utm_y, const string& utm_zone, const double& radius);
 void LatLngToUTM(const double& lat, const double& lng, double* utm_x, double* utm_y, string* utm_zone);
 void EcefToUTM(const double& ecef_x, const double& ecef_y, const double& ecef_z, double* utm_x, double* utm_y, double* utm_z, string* utm_zone);
-string NumberToString(const int& number);
-string ReadFileToString(const string& relative_path);
-int round(const double& number);
 
 #endif

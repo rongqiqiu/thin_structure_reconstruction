@@ -370,3 +370,11 @@ void ThinStructureReconstructor::LoadRANSAC() {
 
 void ThinStructureReconstructor::ComputeCylinderHypotheses() {
 }
+
+void ThinStructureReconstructor::ExportRawImages() {
+	for (int index = 0; index < dataset_.image_cameras.size(); ++index) {
+		const ImageCamera& image_camera = dataset_.image_cameras[index];
+		Mat image = cv::imread(image_camera.file_path, CV_LOAD_IMAGE_COLOR);
+		cv::imwrite(export_directory_ + NumberToString(index) + ".png", image);
+	}
+}

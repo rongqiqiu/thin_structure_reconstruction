@@ -44,8 +44,10 @@ int main() {
 	//reconstructor.ComputeFilteredPoints();
 	reconstructor.LoadFilteredPoints();
 
-	reconstructor.ComputeRANSAC();
-	//reconstructor.LoadRANSAC();
+	//reconstructor.ComputeRANSAC();
+	reconstructor.LoadRANSAC();
+
+	reconstructor.ExportRawImages();
 
 	//pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
 	//Eigen::Vector2d projected_pixel = camera_model.Project(feature_point);
