@@ -2,6 +2,10 @@
 #define BASIC_TYPES_H
 
 #include <Eigen/Dense>
+#include <geo/utm.h>
+#include <geo/geodetic_converter.h>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 
@@ -44,6 +48,9 @@ struct Vector2i {
 		: x(eigen_vector.x()), y(eigen_vector.y()) {}
 	Eigen::Vector2i ToEigenVector() const {
 		return Eigen::Vector2i(x, y);
+	}
+	cv::Point ToCvPoint() const {
+		return cv::Point(x, y);
 	}
 };
 
@@ -97,17 +104,8 @@ struct ExportCameraModel {
 	Matrix3d r;
 	Vector3d t;
 	double k1, k2, fx, fy, fs, cx, cy;
-	Vector2d Project(const Vector3d& ecef_point) const {
-		const Eigen::Vector3d undistorted_point_in_camera = r.ToEigenMatrix() * ecef_point.ToEigenVector() + t.ToEigenVector();
-		const Eigen::Vector2d undistorted_point_in_image(undistorted_point_in_camera.x() / undistorted_point_in_camera.z(),
-			undistorted_point_in_camera.y() / undistorted_point_in_camera.z());
-		const double r2 = undistorted_point_in_image.x() * undistorted_point_in_image.x()
-			+ undistorted_point_in_image.y() * undistorted_point_in_image.y();
-		const Eigen::Vector2d distorted_point_in_image = (1.0 + k1 * r2 + k2 * r2 * r2) * undistorted_point_in_image;
-		const Eigen::Vector2d distorted_point_in_pixel(fx * distorted_point_in_image.x() + fs * distorted_point_in_image.y() + cx,
-			fy * distorted_point_in_image.y() + cy);
-		return Vector2d(distorted_point_in_pixel);
-	}
+	Vector2d ProjectEcef(const Vector3d& ecef_point) const;
+	Vector2d ProjectUtm(const Vector3d& utm_point, const string& utm_zone) const;
 };
 
 struct RasterizedSubimage {
@@ -134,8 +132,12 @@ struct Dataset {
 };
 
 pcl::PointXYZ Vector3dToPointXYZ(const Vector3d& input_point, const Vector3d& reference_point);
-
 pcl::PointCloud<pcl::PointXYZ> VectorVector3dToPointCloud(const vector<Vector3d>& input_vector, const Vector3d& reference_point);
+
+void LatLngToUTM(const double& lat, const double& lng, double* utm_x, double* utm_y, string* utm_zone);
+void UTMToLatLng(const double& utm_x, const double& utm_y, const string& utm_zone, double* lat, double* lng);
+void EcefToUTM(const double& ecef_x, const double& ecef_y, const double& ecef_z, double* utm_x, double* utm_y, double* utm_z, string* utm_zone);
+void UTMToEcef(const double& utm_x, const double& utm_y, const double& utm_z, const string& utm_zone, double* ecef_x, double* ecef_y, double* ecef_z);
 
 string NumberToString(const int& number);
 string ReadFileToString(const string& relative_path);

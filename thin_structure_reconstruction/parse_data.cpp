@@ -49,22 +49,6 @@ UTMBox ComputeUTMBox(const double& utm_x, const double& utm_y, const string& utm
 	return utm_box;
 }
 
-void LatLngToUTM(const double& lat, const double& lng, double* utm_x, double* utm_y, string* utm_zone) {
-	char utm_zone_cstr[10];
-	UTM::LLtoUTM(lat, lng, *utm_x, *utm_y, utm_zone_cstr);
-	*utm_zone = utm_zone_cstr;
-}
-
-void EcefToUTM(const double& ecef_x, const double& ecef_y, const double& ecef_z, double* utm_x, double* utm_y, double* utm_z, string* utm_zone) {
-	double lat, lng, alt;
-	geodetic_converter::GeodeticConverter converter;
-	converter.ecef2Geodetic(ecef_x, ecef_y, ecef_z, &lat, &lng, &alt);
-	LatLngToUTM(lat, lng, utm_x, utm_y, utm_zone);
-	if (utm_z != NULL) {
-		*utm_z = alt;
-	}
-}
-
 vector<StereoRaster> DataParser::ParseStereoRasters(const google::protobuf::RepeatedPtrField<stereo_export::StereoRasterMetadata>& stereo_rasters, const UTMBox& utm_box_user, vector<Vector3d>* points_utm, const UTMBox& utm_box_raw, const string& raw_utm_file_name, const string& raw_ecef_file_name, const string& user_utm_file_name, const string& user_ecef_file_name) {
 	if (import_user_points_) {
 		cout << "About to import stereo raster points." << endl;

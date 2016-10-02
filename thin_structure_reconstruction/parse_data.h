@@ -5,12 +5,8 @@
 #include "export_data.pb.h"
 
 #include <Eigen/Dense>
-#include <geo/utm.h>
-#include <geo/geodetic_converter.h>
 #include <google/protobuf/text_format.h>
 #include <google/protobuf/message_lite.h>
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
 
 #include <iomanip>
 #include <iostream>
@@ -81,7 +77,5 @@ Eigen::Vector2i ProtoToVector(const stereo_export::Vector2i& input_vector);
 HalfOpenBox2i ProtoToHalfOpenBox(const stereo_export::HalfOpenBox2i& input_bbox);
 ExportCameraModel ProtoToCameraModel(const stereo_export::CameraModel& input_camera_model);
 UTMBox ComputeUTMBox(const double& utm_x, const double& utm_y, const string& utm_zone, const double& radius);
-void LatLngToUTM(const double& lat, const double& lng, double* utm_x, double* utm_y, string* utm_zone);
-void EcefToUTM(const double& ecef_x, const double& ecef_y, const double& ecef_z, double* utm_x, double* utm_y, double* utm_z, string* utm_zone);
 
 #endif
