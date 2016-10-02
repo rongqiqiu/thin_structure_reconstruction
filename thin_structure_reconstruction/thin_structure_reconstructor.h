@@ -3,6 +3,9 @@
 
 #include "basic_types.h"
 
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+
 struct CylinderPrimitive {
 	Vector3d pa, pb;
 	double r;
@@ -38,7 +41,9 @@ public:
 	void ComputeRANSAC();
 	void LoadRANSAC();
 	void ComputeCylinderHypotheses();
-	void ExportRawImages();
+	void ExportRawSubimages();
+	void ExportSubimagesWithMarkedEcefPoint(const Vector3d& ecef_point);
+	void ExportSubimagesWithMarkedHypotheses();
 private:
 	string export_directory_;
 	Dataset dataset_;
@@ -49,6 +54,7 @@ private:
 	vector<int> index_filtered_;
 	pcl::PointCloud<pcl::PointXYZ> point_cloud_filtered_;
 	vector<CylinderPrimitive> cylinder_hypotheses_;
+
 	void ExportPointCloud(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const string& file_name);
 	pcl::PointCloud<pcl::PointXYZ> ImportPointCloud(const string& file_name);
 	void ApplyRandomSubsampling(const double& sampling_ratio);
@@ -63,6 +69,11 @@ private:
 	Vector3d ComputeXYCentroid(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const vector<int>& pointIdx);
 	void ComputeExtents(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const vector<int>& pointIdx, const Vector3d& axis, const Vector3d& point, double* min_dot, double* max_dot);
 	pcl::PointCloud<pcl::PointXYZ> ProjectXY(const pcl::PointCloud<pcl::PointXYZ>& input_cloud);
+	bool MarkSubimagePixel(const RasterizedSubimage& rasterized_subimage, const Vector2d& pixel, const int& radius_in_pixel, cv::Mat* subimage);
+	void MarkSubimageWithEcefPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& ecef_point, cv::Mat* subimage);
+	void MarkSubimageWithUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& utm_point, cv::Mat* subimage);
+	void MarkSubimageWithShiftedUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& shifted_utm_point, cv::Mat* subimage);
+	void MarkSubimageWithCylinder(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, cv::Mat* subimage);
 };
 
 #endif

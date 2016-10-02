@@ -366,15 +366,77 @@ void ThinStructureReconstructor::ComputeRANSAC() {
 void ThinStructureReconstructor::LoadRANSAC() {
 	cout << "Loading RANSAC" << endl;
 	cylinder_hypotheses_ = ImportCylinderPrimitives("cylinder_hypotheses.dat");
+	cout << "Number of cylinder hypotheses: " << cylinder_hypotheses_.size() << endl;
+	for (int index = 0; index < cylinder_hypotheses_.size(); ++index) {
+		const CylinderPrimitive& cylinder = cylinder_hypotheses_[index];
+		cout << "Cylinder #" << index << ": (" << cylinder.pa.x << " " << cylinder.pa.y << " " << cylinder.pa.z << "),"
+									   << " (" << cylinder.pb.x << " " << cylinder.pb.y << " " << cylinder.pb.z << "),"
+									   << " " << cylinder.r << endl;
+	}
 }
 
 void ThinStructureReconstructor::ComputeCylinderHypotheses() {
 }
 
-void ThinStructureReconstructor::ExportRawImages() {
+void ThinStructureReconstructor::ExportRawSubimages() {
 	for (int index = 0; index < dataset_.image_cameras.size(); ++index) {
 		const ImageCamera& image_camera = dataset_.image_cameras[index];
-		Mat image = cv::imread(image_camera.file_path, CV_LOAD_IMAGE_COLOR);
-		cv::imwrite(export_directory_ + NumberToString(index) + ".png", image);
+		const cv::Mat raw_subimage = cv::imread(image_camera.subimage.file_path, CV_LOAD_IMAGE_COLOR);
+		cv::imwrite(export_directory_ + NumberToString(index) + ".png", raw_subimage);
 	}
 }
+
+void ThinStructureReconstructor::ExportSubimagesWithMarkedEcefPoint(const Vector3d& ecef_point) {
+	for (int index = 0; index < dataset_.image_cameras.size(); ++index) {
+		const ImageCamera& image_camera = dataset_.image_cameras[index];
+		cv::Mat subimage = cv::imread(image_camera.subimage.file_path, CV_LOAD_IMAGE_COLOR);
+		MarkSubimageWithEcefPoint(image_camera.subimage, image_camera.camera_model, ecef_point, &subimage);
+		cv::imwrite(export_directory_ + NumberToString(index) + "_marked_point.png", subimage);
+	}
+}
+
+void ThinStructureReconstructor::ExportSubimagesWithMarkedHypotheses() {
+	for (int index = 0; index < dataset_.image_cameras.size(); ++index) {
+		const ImageCamera& image_camera = dataset_.image_cameras[index];
+		cv::Mat subimage = cv::imread(image_camera.subimage.file_path, CV_LOAD_IMAGE_COLOR);
+		for (int cylinder_index = 0; cylinder_index < cylinder_hypotheses_.size(); ++cylinder_index) {
+			const CylinderPrimitive& cylinder = cylinder_hypotheses_[cylinder_index];
+			MarkSubimageWithCylinder(image_camera.subimage, image_camera.camera_model, cylinder, &subimage);
+		}
+		cv::imwrite(export_directory_ + NumberToString(index) + "_marked_cylinder.png", subimage);
+	}
+}
+
+void ThinStructureReconstructor::MarkSubimageWithEcefPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& ecef_point, cv::Mat* subimage) {
+	const Vector2d projected_pixel = camera_model.ProjectEcef(ecef_point);
+	MarkSubimagePixel(rasterized_subimage, projected_pixel, 5, subimage);
+}
+
+void ThinStructureReconstructor::MarkSubimageWithUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& utm_point, cv::Mat* subimage) {
+	const Vector2d projected_pixel = camera_model.ProjectUtm(utm_point, dataset_.utm_box.utm_zone);
+	MarkSubimagePixel(rasterized_subimage, projected_pixel, 5, subimage);
+}
+
+void ThinStructureReconstructor::MarkSubimageWithShiftedUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& shifted_utm_point, cv::Mat* subimage) {
+	MarkSubimageWithUtmPoint(rasterized_subimage, camera_model, Vector3d(shifted_utm_point.ToEigenVector() + reference_point_.ToEigenVector()), subimage);
+}
+
+void ThinStructureReconstructor::MarkSubimageWithCylinder(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, cv::Mat* subimage) {
+	for (int sample_index = 0; sample_index <= 500; ++sample_index) {
+		const Vector3d sample_axis = (500 - sample_index) * 1.0 / 500 * cylinder.pa.ToEigenVector()
+			+ sample_index * 1.0 / 500 * cylinder.pb.ToEigenVector();
+		MarkSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, sample_axis, subimage);
+	}
+}
+
+bool ThinStructureReconstructor::MarkSubimagePixel(const RasterizedSubimage& rasterized_subimage, const Vector2d& pixel, const int& radius_in_pixel, cv::Mat* subimage) {
+	const Vector2i integer_pixel(round(pixel.x), round(pixel.y));
+	if (rasterized_subimage.bounds.Contains(integer_pixel)) {
+		const Vector2i shifted_pixel = integer_pixel.ToEigenVector() - rasterized_subimage.bounds.min_bounds.ToEigenVector();
+		cv::circle(*subimage, shifted_pixel.ToCvPoint(), radius_in_pixel, cv::Scalar(0, 0, 255), -1);
+		return true;
+	} else {
+		return false;
+	}
+}
+
