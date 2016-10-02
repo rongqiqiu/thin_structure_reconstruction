@@ -407,25 +407,25 @@ void ThinStructureReconstructor::ExportSubimagesWithMarkedHypotheses() {
 	}
 }
 
-void ThinStructureReconstructor::MarkSubimageWithEcefPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& ecef_point, cv::Mat* subimage) {
+void ThinStructureReconstructor::MarkSubimageWithEcefPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& ecef_point, const int& radius_in_pixel, cv::Mat* subimage) {
 	const Vector2d projected_pixel = camera_model.ProjectEcef(ecef_point);
-	MarkSubimagePixel(rasterized_subimage, projected_pixel, 5, subimage);
+	MarkSubimagePixel(rasterized_subimage, projected_pixel, radius_in_pixel, subimage);
 }
 
-void ThinStructureReconstructor::MarkSubimageWithUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& utm_point, cv::Mat* subimage) {
+void ThinStructureReconstructor::MarkSubimageWithUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& utm_point, const int& radius_in_pixel, cv::Mat* subimage) {
 	const Vector2d projected_pixel = camera_model.ProjectUtm(utm_point, dataset_.utm_box.utm_zone);
-	MarkSubimagePixel(rasterized_subimage, projected_pixel, 5, subimage);
+	MarkSubimagePixel(rasterized_subimage, projected_pixel, radius_in_pixel, subimage);
 }
 
-void ThinStructureReconstructor::MarkSubimageWithShiftedUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& shifted_utm_point, cv::Mat* subimage) {
-	MarkSubimageWithUtmPoint(rasterized_subimage, camera_model, Vector3d(shifted_utm_point.ToEigenVector() + reference_point_.ToEigenVector()), subimage);
+void ThinStructureReconstructor::MarkSubimageWithShiftedUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& shifted_utm_point, const int& radius_in_pixel, cv::Mat* subimage) {
+	MarkSubimageWithUtmPoint(rasterized_subimage, camera_model, Vector3d(shifted_utm_point.ToEigenVector() + reference_point_.ToEigenVector()), radius_in_pixel, subimage);
 }
 
-void ThinStructureReconstructor::MarkSubimageWithCylinder(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, cv::Mat* subimage) {
+void ThinStructureReconstructor::MarkSubimageWithCylinder(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const int& radius_in_pixel, cv::Mat* subimage) {
 	for (int sample_index = 0; sample_index <= 500; ++sample_index) {
 		const Vector3d sample_axis = (500 - sample_index) * 1.0 / 500 * cylinder.pa.ToEigenVector()
 			+ sample_index * 1.0 / 500 * cylinder.pb.ToEigenVector();
-		MarkSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, sample_axis, subimage);
+		MarkSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, sample_axis, radius_in_pixel, subimage);
 	}
 }
 
