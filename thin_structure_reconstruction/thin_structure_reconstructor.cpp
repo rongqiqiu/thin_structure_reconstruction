@@ -60,12 +60,12 @@ void ThinStructureReconstructor::ExportCylinderMeshes(const vector<CylinderPrimi
 		const Eigen::Vector3d dir_x = Eigen::Vector3d(1.0, 0.0, 0.0).cross(dir_z).normalized();
 		const Eigen::Vector3d dir_y = dir_z.cross(dir_x).normalized();
 		for (int subdivision_index = 0; subdivision_index < 16; ++subdivision_index) {
-			const double angle = subdivision_index * PI * 2 / 16.0;
+			const double angle = subdivision_index * PI * 2.0 / 16;
 			const Eigen::Vector3d vertex = cylinder.pa.ToEigenVector() + dir_x * cylinder.r * cos(angle) + dir_y * cylinder.r * sin(angle);
 			out_stream << setprecision(8) << fixed << "v " << vertex.x() << " " << vertex.y() << " " << vertex.z() << endl;
 		}
 		for (int subdivision_index = 0; subdivision_index < 16; ++subdivision_index) {
-			const double angle = subdivision_index * PI * 2 / 16.0;
+			const double angle = subdivision_index * PI * 2.0 / 16;
 			const Eigen::Vector3d vertex = cylinder.pb.ToEigenVector() + dir_x * cylinder.r * cos(angle) + dir_y * cylinder.r * sin(angle);
 			out_stream << setprecision(8) << fixed << "v " << vertex.x() << " " << vertex.y() << " " << vertex.z() << endl;
 		}
@@ -390,7 +390,7 @@ void ThinStructureReconstructor::ExportSubimagesWithMarkedEcefPoint(const Vector
 	for (int index = 0; index < dataset_.image_cameras.size(); ++index) {
 		const ImageCamera& image_camera = dataset_.image_cameras[index];
 		cv::Mat subimage = cv::imread(image_camera.subimage.file_path, CV_LOAD_IMAGE_COLOR);
-		MarkSubimageWithEcefPoint(image_camera.subimage, image_camera.camera_model, ecef_point, 5.0, &subimage);
+		MarkSubimageWithEcefPoint(image_camera.subimage, image_camera.camera_model, ecef_point, cv::Scalar(0, 0, 255), 5.0, &subimage);
 		cv::imwrite(export_directory_ + NumberToString(index) + "_marked_point.png", subimage);
 	}
 }
@@ -401,39 +401,59 @@ void ThinStructureReconstructor::ExportSubimagesWithMarkedHypotheses() {
 		cv::Mat subimage = cv::imread(image_camera.subimage.file_path, CV_LOAD_IMAGE_COLOR);
 		for (int cylinder_index = 0; cylinder_index < cylinder_hypotheses_.size(); ++cylinder_index) {
 			const CylinderPrimitive& cylinder = cylinder_hypotheses_[cylinder_index];
-			MarkSubimageWithCylinderAxis(image_camera.subimage, image_camera.camera_model, cylinder, 2.0, &subimage);
+			MarkSubimageWithCylinderSurface(image_camera.subimage, image_camera.camera_model, cylinder, cv::Scalar(0, 255, 0), &subimage);
+			MarkSubimageWithCylinderAxis(image_camera.subimage, image_camera.camera_model, cylinder, cv::Scalar(0, 0, 255), 2.0, &subimage);
+			MarkSubimageWithCylinderOutline(image_camera.subimage, image_camera.camera_model, cylinder, cv::Scalar(255, 0, 0), 2.0, &subimage);
 		}
 		cv::imwrite(export_directory_ + NumberToString(index) + "_marked_cylinder.png", subimage);
 	}
 }
 
-void ThinStructureReconstructor::MarkSubimageWithEcefPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& ecef_point, const int& radius_in_pixel, cv::Mat* subimage) {
+void ThinStructureReconstructor::MarkSubimageWithEcefPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& ecef_point, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage) {
 	const Vector2d projected_pixel = camera_model.ProjectEcef(ecef_point);
-	MarkSubimagePixel(rasterized_subimage, projected_pixel, radius_in_pixel, subimage);
+	MarkSubimagePixel(rasterized_subimage, projected_pixel, color, radius_in_pixel, subimage);
 }
 
-void ThinStructureReconstructor::MarkSubimageWithUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& utm_point, const int& radius_in_pixel, cv::Mat* subimage) {
+void ThinStructureReconstructor::MarkSubimageWithUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& utm_point, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage) {
 	const Vector2d projected_pixel = camera_model.ProjectUtm(utm_point, dataset_.utm_box.utm_zone);
-	MarkSubimagePixel(rasterized_subimage, projected_pixel, radius_in_pixel, subimage);
+	MarkSubimagePixel(rasterized_subimage, projected_pixel, color, radius_in_pixel, subimage);
 }
 
-void ThinStructureReconstructor::MarkSubimageWithShiftedUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& shifted_utm_point, const int& radius_in_pixel, cv::Mat* subimage) {
-	MarkSubimageWithUtmPoint(rasterized_subimage, camera_model, Vector3d(shifted_utm_point.ToEigenVector() + reference_point_.ToEigenVector()), radius_in_pixel, subimage);
+void ThinStructureReconstructor::MarkSubimageWithShiftedUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& shifted_utm_point, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage) {
+	MarkSubimageWithUtmPoint(rasterized_subimage, camera_model, Vector3d(shifted_utm_point.ToEigenVector() + reference_point_.ToEigenVector()), color, radius_in_pixel, subimage);
 }
 
-void ThinStructureReconstructor::MarkSubimageWithCylinderAxis(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const int& radius_in_pixel, cv::Mat* subimage) {
+void ThinStructureReconstructor::MarkSubimageWithCylinderSurface(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Scalar& color, cv::Mat* subimage) {
 	for (int sample_index = 0; sample_index <= 500; ++sample_index) {
 		const Vector3d sample_axis = (500 - sample_index) * 1.0 / 500 * cylinder.pa.ToEigenVector()
 			+ sample_index * 1.0 / 500 * cylinder.pb.ToEigenVector();
-		MarkSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, sample_axis, radius_in_pixel, subimage);
+		const Eigen::Vector3d dir_z = (cylinder.pb.ToEigenVector() - cylinder.pa.ToEigenVector()).normalized();
+		const Eigen::Vector3d dir_x = Eigen::Vector3d(1.0, 0.0, 0.0).cross(dir_z).normalized();
+		const Eigen::Vector3d dir_y = dir_z.cross(dir_x).normalized();
+		for (int subdivision_index = 0; subdivision_index < 32; ++subdivision_index) {
+			const double angle = subdivision_index * PI * 2.0 / 32;
+			const Eigen::Vector3d vertex = sample_axis + dir_x * cylinder.r * cos(angle) + dir_y * cylinder.r * sin(angle);
+			MarkSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, vertex, color, 1.0, subimage);
+		}
 	}
 }
 
-bool ThinStructureReconstructor::MarkSubimagePixel(const RasterizedSubimage& rasterized_subimage, const Vector2d& pixel, const int& radius_in_pixel, cv::Mat* subimage) {
+void ThinStructureReconstructor::MarkSubimageWithCylinderAxis(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage) {
+	for (int sample_index = 0; sample_index <= 500; ++sample_index) {
+		const Vector3d sample_axis = (500 - sample_index) * 1.0 / 500 * cylinder.pa.ToEigenVector()
+			+ sample_index * 1.0 / 500 * cylinder.pb.ToEigenVector();
+		MarkSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, sample_axis, color, radius_in_pixel, subimage);
+	}
+}
+
+void ThinStructureReconstructor::MarkSubimageWithCylinderOutline(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage) {
+}
+
+bool ThinStructureReconstructor::MarkSubimagePixel(const RasterizedSubimage& rasterized_subimage, const Vector2d& pixel, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage) {
 	const Vector2i integer_pixel(round(pixel.x), round(pixel.y));
 	if (rasterized_subimage.bounds.Contains(integer_pixel)) {
 		const Vector2i shifted_pixel = integer_pixel.ToEigenVector() - rasterized_subimage.bounds.min_bounds.ToEigenVector();
-		cv::circle(*subimage, shifted_pixel.ToCvPoint(), radius_in_pixel, cv::Scalar(0, 0, 255), -1);
+		cv::circle(*subimage, shifted_pixel.ToCvPoint(), radius_in_pixel, color, -1);
 		return true;
 	} else {
 		return false;
