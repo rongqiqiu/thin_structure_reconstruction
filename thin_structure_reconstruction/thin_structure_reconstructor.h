@@ -73,7 +73,7 @@ private:
 	void MarkSubimageWithEcefPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& ecef_point, const int& radius_in_pixel, cv::Mat* subimage);
 	void MarkSubimageWithUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& utm_point, const int& radius_in_pixel, cv::Mat* subimage);
 	void MarkSubimageWithShiftedUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& shifted_utm_point, const int& radius_in_pixel, cv::Mat* subimage);
-	void MarkSubimageWithCylinder(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const int& radius_in_pixel, cv::Mat* subimage);
+	void MarkSubimageWithCylinderAxis(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const int& radius_in_pixel, cv::Mat* subimage);
 };
 
 #endif

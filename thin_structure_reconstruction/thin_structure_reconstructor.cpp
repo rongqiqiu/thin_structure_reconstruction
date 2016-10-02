@@ -390,7 +390,7 @@ void ThinStructureReconstructor::ExportSubimagesWithMarkedEcefPoint(const Vector
 	for (int index = 0; index < dataset_.image_cameras.size(); ++index) {
 		const ImageCamera& image_camera = dataset_.image_cameras[index];
 		cv::Mat subimage = cv::imread(image_camera.subimage.file_path, CV_LOAD_IMAGE_COLOR);
-		MarkSubimageWithEcefPoint(image_camera.subimage, image_camera.camera_model, ecef_point, &subimage);
+		MarkSubimageWithEcefPoint(image_camera.subimage, image_camera.camera_model, ecef_point, 5.0, &subimage);
 		cv::imwrite(export_directory_ + NumberToString(index) + "_marked_point.png", subimage);
 	}
 }
@@ -401,7 +401,7 @@ void ThinStructureReconstructor::ExportSubimagesWithMarkedHypotheses() {
 		cv::Mat subimage = cv::imread(image_camera.subimage.file_path, CV_LOAD_IMAGE_COLOR);
 		for (int cylinder_index = 0; cylinder_index < cylinder_hypotheses_.size(); ++cylinder_index) {
 			const CylinderPrimitive& cylinder = cylinder_hypotheses_[cylinder_index];
-			MarkSubimageWithCylinder(image_camera.subimage, image_camera.camera_model, cylinder, &subimage);
+			MarkSubimageWithCylinderAxis(image_camera.subimage, image_camera.camera_model, cylinder, 2.0, &subimage);
 		}
 		cv::imwrite(export_directory_ + NumberToString(index) + "_marked_cylinder.png", subimage);
 	}
@@ -421,7 +421,7 @@ void ThinStructureReconstructor::MarkSubimageWithShiftedUtmPoint(const Rasterize
 	MarkSubimageWithUtmPoint(rasterized_subimage, camera_model, Vector3d(shifted_utm_point.ToEigenVector() + reference_point_.ToEigenVector()), radius_in_pixel, subimage);
 }
 
-void ThinStructureReconstructor::MarkSubimageWithCylinder(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const int& radius_in_pixel, cv::Mat* subimage) {
+void ThinStructureReconstructor::MarkSubimageWithCylinderAxis(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const int& radius_in_pixel, cv::Mat* subimage) {
 	for (int sample_index = 0; sample_index <= 500; ++sample_index) {
 		const Vector3d sample_axis = (500 - sample_index) * 1.0 / 500 * cylinder.pa.ToEigenVector()
 			+ sample_index * 1.0 / 500 * cylinder.pb.ToEigenVector();
