@@ -430,8 +430,8 @@ void ThinStructureReconstructor::MarkSubimageWithCylinderSurface(const Rasterize
 		const Eigen::Vector3d dir_z = (cylinder.pb.ToEigenVector() - cylinder.pa.ToEigenVector()).normalized();
 		const Eigen::Vector3d dir_x = Eigen::Vector3d(1.0, 0.0, 0.0).cross(dir_z).normalized();
 		const Eigen::Vector3d dir_y = dir_z.cross(dir_x).normalized();
-		for (int subdivision_index = 0; subdivision_index < 32; ++subdivision_index) {
-			const double angle = subdivision_index * PI * 2.0 / 32;
+		for (int subdivision_index = 0; subdivision_index < 64; ++subdivision_index) {
+			const double angle = subdivision_index * PI * 2.0 / 64;
 			const Eigen::Vector3d vertex = sample_axis + dir_x * cylinder.r * cos(angle) + dir_y * cylinder.r * sin(angle);
 			MarkSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(vertex), color, 1.0, subimage);
 		}
@@ -446,7 +446,56 @@ void ThinStructureReconstructor::MarkSubimageWithCylinderAxis(const RasterizedSu
 	}
 }
 
+double ThinStructureReconstructor::ComputeOutlineAngle(const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder) {
+	double outline_angle = 0.0;
+	double min_dot = 1e100;
+
+	const Eigen::Vector3d axis_point = cylinder.pa.ToEigenVector();
+	const Eigen::Vector2d projected_axis_point = camera_model.ProjectUtm(Vector3d(axis_point + reference_point_.ToEigenVector()), dataset_.utm_box.utm_zone);
+	
+	const Eigen::Vector3d other_axis_point = cylinder.pb.ToEigenVector();
+	const Eigen::Vector2d projected_other_axis_point = camera_model.ProjectUtm(Vector3d(other_axis_point + reference_point_.ToEigenVector()), dataset_.utm_box.utm_zone);
+	
+	const Eigen::Vector2d vector_axis = projected_other_axis_point - projected_axis_point;
+
+	const Eigen::Vector3d dir_z = (cylinder.pb.ToEigenVector() - cylinder.pa.ToEigenVector()).normalized();
+	const Eigen::Vector3d dir_x = Eigen::Vector3d(1.0, 0.0, 0.0).cross(dir_z).normalized();
+	const Eigen::Vector3d dir_y = dir_z.cross(dir_x).normalized();
+	for (int subdivision_index = 0; subdivision_index < 64; ++subdivision_index) {
+		const double angle = subdivision_index * PI * 2.0 / 64;
+		const Eigen::Vector3d surface_point = axis_point + dir_x * cylinder.r * cos(angle) + dir_y * cylinder.r * sin(angle);
+		const Eigen::Vector2d projected_surface_point = camera_model.ProjectUtm(Vector3d(surface_point + reference_point_.ToEigenVector()), dataset_.utm_box.utm_zone);
+
+		const Eigen::Vector2d vector_surface = projected_surface_point - projected_axis_point;
+
+		double dot = vector_axis.dot(vector_surface);
+		if (dot < min_dot) {
+			min_dot = dot;
+			outline_angle = angle;
+		}
+	}
+	return outline_angle;
+}
+
 void ThinStructureReconstructor::MarkSubimageWithCylinderOutline(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage) {
+	const double outline_angle = ComputeOutlineAngle(camera_model, cylinder);
+	for (int sample_index = 0; sample_index <= 500; ++sample_index) {
+		const Eigen::Vector3d sample_axis = (500 - sample_index) * 1.0 / 500 * cylinder.pa.ToEigenVector()
+			+ sample_index * 1.0 / 500 * cylinder.pb.ToEigenVector();
+		const Eigen::Vector3d dir_z = (cylinder.pb.ToEigenVector() - cylinder.pa.ToEigenVector()).normalized();
+		const Eigen::Vector3d dir_x = Eigen::Vector3d(1.0, 0.0, 0.0).cross(dir_z).normalized();
+		const Eigen::Vector3d dir_y = dir_z.cross(dir_x).normalized();
+		{
+			const double angle = outline_angle;
+			const Eigen::Vector3d vertex = sample_axis + dir_x * cylinder.r * cos(angle) + dir_y * cylinder.r * sin(angle);
+			MarkSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(vertex), color, 1.0, subimage);
+		}
+		{
+			const double angle = outline_angle > PI ? outline_angle - PI : outline_angle + PI;
+			const Eigen::Vector3d vertex = sample_axis + dir_x * cylinder.r * cos(angle) + dir_y * cylinder.r * sin(angle);
+			MarkSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(vertex), color, 1.0, subimage);
+		}
+	}
 }
 
 bool ThinStructureReconstructor::MarkSubimagePixel(const RasterizedSubimage& rasterized_subimage, const Vector2d& pixel, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage) {
