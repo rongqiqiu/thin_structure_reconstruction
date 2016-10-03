@@ -425,7 +425,7 @@ void ThinStructureReconstructor::MarkSubimageWithShiftedUtmPoint(const Rasterize
 
 void ThinStructureReconstructor::MarkSubimageWithCylinderSurface(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Scalar& color, cv::Mat* subimage) {
 	for (int sample_index = 0; sample_index <= 500; ++sample_index) {
-		const Vector3d sample_axis = (500 - sample_index) * 1.0 / 500 * cylinder.pa.ToEigenVector()
+		const Eigen::Vector3d sample_axis = (500 - sample_index) * 1.0 / 500 * cylinder.pa.ToEigenVector()
 			+ sample_index * 1.0 / 500 * cylinder.pb.ToEigenVector();
 		const Eigen::Vector3d dir_z = (cylinder.pb.ToEigenVector() - cylinder.pa.ToEigenVector()).normalized();
 		const Eigen::Vector3d dir_x = Eigen::Vector3d(1.0, 0.0, 0.0).cross(dir_z).normalized();
@@ -433,7 +433,7 @@ void ThinStructureReconstructor::MarkSubimageWithCylinderSurface(const Rasterize
 		for (int subdivision_index = 0; subdivision_index < 32; ++subdivision_index) {
 			const double angle = subdivision_index * PI * 2.0 / 32;
 			const Eigen::Vector3d vertex = sample_axis + dir_x * cylinder.r * cos(angle) + dir_y * cylinder.r * sin(angle);
-			MarkSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, vertex, color, 1.0, subimage);
+			MarkSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(vertex), color, 1.0, subimage);
 		}
 	}
 }
