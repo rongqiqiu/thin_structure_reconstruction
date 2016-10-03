@@ -396,7 +396,9 @@ void ThinStructureReconstructor::ExportSubimagesWithMarkedEcefPoint(const Vector
 }
 
 void ThinStructureReconstructor::ExportSubimagesWithMarkedHypotheses() {
+	cout << "About to export " << dataset_.image_cameras.size() << " images." << endl;
 	for (int index = 0; index < dataset_.image_cameras.size(); ++index) {
+		cout << "Exporting image #" << index << endl;
 		const ImageCamera& image_camera = dataset_.image_cameras[index];
 		cv::Mat subimage = cv::imread(image_camera.subimage.file_path, CV_LOAD_IMAGE_COLOR);
 		for (int cylinder_index = 0; cylinder_index < cylinder_hypotheses_.size(); ++cylinder_index) {
@@ -451,12 +453,12 @@ double ThinStructureReconstructor::ComputeOutlineAngle(const ExportCameraModel& 
 	double min_dot = 1e100;
 
 	const Eigen::Vector3d axis_point = cylinder.pa.ToEigenVector();
-	const Eigen::Vector2d projected_axis_point = camera_model.ProjectUtm(Vector3d(axis_point + reference_point_.ToEigenVector()), dataset_.utm_box.utm_zone);
+	const Eigen::Vector2d projected_axis_point = camera_model.ProjectUtm(Vector3d(axis_point + reference_point_.ToEigenVector()), dataset_.utm_box.utm_zone).ToEigenVector();
 	
 	const Eigen::Vector3d other_axis_point = cylinder.pb.ToEigenVector();
-	const Eigen::Vector2d projected_other_axis_point = camera_model.ProjectUtm(Vector3d(other_axis_point + reference_point_.ToEigenVector()), dataset_.utm_box.utm_zone);
+	const Eigen::Vector2d projected_other_axis_point = camera_model.ProjectUtm(Vector3d(other_axis_point + reference_point_.ToEigenVector()), dataset_.utm_box.utm_zone).ToEigenVector();
 	
-	const Eigen::Vector2d vector_axis = projected_other_axis_point - projected_axis_point;
+	const Eigen::Vector2d vector_axis = (projected_other_axis_point - projected_axis_point).normalized();
 
 	const Eigen::Vector3d dir_z = (cylinder.pb.ToEigenVector() - cylinder.pa.ToEigenVector()).normalized();
 	const Eigen::Vector3d dir_x = Eigen::Vector3d(1.0, 0.0, 0.0).cross(dir_z).normalized();
@@ -464,11 +466,12 @@ double ThinStructureReconstructor::ComputeOutlineAngle(const ExportCameraModel& 
 	for (int subdivision_index = 0; subdivision_index < 64; ++subdivision_index) {
 		const double angle = subdivision_index * PI * 2.0 / 64;
 		const Eigen::Vector3d surface_point = axis_point + dir_x * cylinder.r * cos(angle) + dir_y * cylinder.r * sin(angle);
-		const Eigen::Vector2d projected_surface_point = camera_model.ProjectUtm(Vector3d(surface_point + reference_point_.ToEigenVector()), dataset_.utm_box.utm_zone);
+		const Eigen::Vector2d projected_surface_point = camera_model.ProjectUtm(Vector3d(surface_point + reference_point_.ToEigenVector()), dataset_.utm_box.utm_zone).ToEigenVector();
 
-		const Eigen::Vector2d vector_surface = projected_surface_point - projected_axis_point;
+		const Eigen::Vector2d vector_surface = (projected_surface_point - projected_axis_point).normalized();
 
-		double dot = vector_axis.dot(vector_surface);
+		double dot = fabs(vector_axis.dot(vector_surface));
+		//cout << "angle: " << angle << " dot: " << dot << endl;
 		if (dot < min_dot) {
 			min_dot = dot;
 			outline_angle = angle;
