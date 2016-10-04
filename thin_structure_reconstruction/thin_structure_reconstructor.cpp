@@ -518,22 +518,22 @@ cv::Mat ThinStructureReconstructor::ComputeVerticalEdgeMap(const cv::Mat& subima
 	cv::cvtColor(subimage, gray, CV_BGR2GRAY);
 
 	cv::Mat grad_x, grad_y;
-	cv::Sobel(gray, grad_x, CV_16S, 1, 0, 3, 1, 0, cv::BORDER_DEFAULT);
-	cv::Sobel(gray, grad_y, CV_16S, 0, 1, 3, 1, 0, cv::BORDER_DEFAULT);
+	cv::Sobel(gray, grad_x, CV_32F, 1, 0, 3, 1, 0, cv::BORDER_DEFAULT);
+	cv::Sobel(gray, grad_y, CV_32F, 0, 1, 3, 1, 0, cv::BORDER_DEFAULT);
 
 	cv::Mat abs_grad_x, abs_grad_y;
 	abs_grad_x = cv::abs(grad_x);
 	abs_grad_y = cv::abs(grad_y);
 
 	cv::Mat normalized_grad_x, normalized_grad_y;
-	cv::normalize(abs_grad_x, normalized_grad_x, 0.0, 255.0, cv::NORM_MINMAX);
-	cv::normalize(abs_grad_y, normalized_grad_y, 0.0, 255.0, cv::NORM_MINMAX);
-	cv::imwrite(export_directory_ + NumberToString(index) + "_normalized_grad_x.png", normalized_grad_x);
-	cv::imwrite(export_directory_ + NumberToString(index) + "_normalized_grad_y.png", normalized_grad_y);
+	cv::normalize(abs_grad_x, normalized_grad_x, 0.0, 1.0, cv::NORM_MINMAX);
+	cv::normalize(abs_grad_y, normalized_grad_y, 0.0, 1.0, cv::NORM_MINMAX);
+	cv::imwrite(export_directory_ + NumberToString(index) + "_normalized_grad_x.png", normalized_grad_x * 255.0);
+	cv::imwrite(export_directory_ + NumberToString(index) + "_normalized_grad_y.png", normalized_grad_y * 255.0);
 
 	cv::Mat raw_vertical_edge_response = cv::max(abs_grad_x - abs_grad_y, 0.0);
 	cv::Mat vertical_edge_response;
-	cv::normalize(raw_vertical_edge_response, vertical_edge_response, 0.0, 255.0, cv::NORM_MINMAX);
+	cv::normalize(raw_vertical_edge_response, vertical_edge_response, 0.0, 1.0, cv::NORM_MINMAX);
 
 	return vertical_edge_response;
 }
@@ -543,7 +543,12 @@ double ThinStructureReconstructor::RetrieveSubimagePixel(const RasterizedSubimag
 	const Vector2i integer_pixel(round(pixel.x), round(pixel.y));
 	if (rasterized_subimage.bounds.Contains(integer_pixel)) {
 		const Vector2i shifted_pixel = integer_pixel.ToEigenVector() - rasterized_subimage.bounds.min_bounds.ToEigenVector();
-		return subimage.at<double>(shifted_pixel.y, shifted_pixel.x);
+		//if (subimage.rows == 997 && subimage.cols == 2062) {
+		//	cout << "subimage size: " << subimage.rows << " x " << subimage.cols << endl;
+		//	cout << "shifted_pixel, y: " << shifted_pixel.y << " x: " << shifted_pixel.x << endl;
+		//}
+		return subimage.at<float>(shifted_pixel.y, shifted_pixel.x);
+		//cout << "retrieval succeed" << endl;
 	} else {
 		return 0.0;
 	}
@@ -583,6 +588,7 @@ double ThinStructureReconstructor::ComputeEdgeResponse(const RasterizedSubimage&
 
 void ThinStructureReconstructor::ComputeRadius() {
 	cylinder_hypotheses_with_radii_.clear();
+	ofstream out_stream(export_directory_ + "radius.txt");
 	for (int cylinder_index = 0; cylinder_index < cylinder_hypotheses_.size(); ++cylinder_index) {
 		const CylinderPrimitive& cylinder = cylinder_hypotheses_[cylinder_index];
 		map<int, int> radius_histogram;
@@ -590,12 +596,13 @@ void ThinStructureReconstructor::ComputeRadius() {
 			radius_histogram[radius_division] = 0;
 		}
 		double best_radius_histogram = 0.0;
-		double best_radius;
+		double best_radius = 0.0;
 		for (int index = 0; index < dataset_.image_cameras.size(); ++index) {
+			cout << "Computing radius for Cylinder #" << cylinder_index << ", Image #" << index << endl;
 			const ImageCamera& image_camera = dataset_.image_cameras[index];
 			const cv::Mat subimage = cv::imread(image_camera.subimage.file_path, CV_LOAD_IMAGE_COLOR);
 			const cv::Mat vertical_edge_response = ComputeVerticalEdgeMap(subimage, index);
-			cv::imwrite(export_directory_ + NumberToString(index) + "_vertical_edge_response.png", vertical_edge_response);
+			cv::imwrite(export_directory_ + NumberToString(index) + "_vertical_edge_response.png", vertical_edge_response * 255.0);
 
 			double max_response = 0.0;
 			int max_radius_division = 0;
@@ -603,15 +610,30 @@ void ThinStructureReconstructor::ComputeRadius() {
 			for (int radius_division = 1; radius_division <= 100; ++radius_division) {
 				const double radius = radius_division * 1.0 / 100;
 				CylinderPrimitive cylinder_new = cylinder;
-				cylinder.r = radius;
+				cylinder_new.r = radius;
 
+				//cout << "Computing radius: " << radius << endl;
 				const double edge_response = ComputeEdgeResponse(image_camera.subimage, image_camera.camera_model, cylinder_new, vertical_edge_response);
+				cout << "Radius: " << radius << " edge response: " << edge_response << endl;
 				if (edge_response > max_response) {
 					max_response = edge_response;
 					max_radius_division = radius_division;
 				}
 			}
 
+			cout << "Max radius division: " << max_radius_division << endl;
+			if (max_radius_division == 0) continue;
+
+			out_stream << index << " " << max_radius_division * 1.0 / 100 << endl;
+
+			CylinderPrimitive cylinder_new = cylinder;
+			cylinder_new.r = max_radius_division * 1.0 / 100;
+			cv::Mat subimage_new = subimage;
+			MarkSubimageWithCylinderOutline(image_camera.subimage, image_camera.camera_model, cylinder_new, cv::Scalar(255, 0, 0), 1, &subimage_new);
+
+			cv::imwrite(export_directory_ + NumberToString(index) + "_cylinder_" + NumberToString(cylinder_index) + ".png", subimage_new);
+
+			++radius_histogram[max_radius_division];
 			if (radius_histogram[max_radius_division] > best_radius_histogram) {
 				best_radius_histogram = radius_histogram[max_radius_division];
 				best_radius = max_radius_division * 1.0 / 100;
@@ -620,7 +642,10 @@ void ThinStructureReconstructor::ComputeRadius() {
 		CylinderPrimitive cylinder_new = cylinder;
 		cylinder_new.r = best_radius;
 		cylinder_hypotheses_with_radii_.push_back(cylinder_new);
+
+		cout << "Best radius: " << best_radius << endl;
 	}
+	out_stream.close();
 	ExportCylinderPrimitives(cylinder_hypotheses_with_radii_, "cylinder_hypotheses_with_radii.dat");
 	ExportCylinderMeshes(cylinder_hypotheses_with_radii_, "cylinder_hypotheses_with_radii.obj");
 }
