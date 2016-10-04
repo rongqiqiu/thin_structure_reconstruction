@@ -79,7 +79,7 @@ private:
 	void MarkSubimageWithCylinderAxis(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage);
 	double ComputeOutlineAngle(const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder);
 	void MarkSubimageWithCylinderOutline(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage);
-	cv::Mat ComputeVerticalEdgeResponse(const cv::Mat& subimage, const int& index);
+	cv::Mat ComputeVerticalEdgeMap(const cv::Mat& subimage, const int& index);
 };
 
 #endif

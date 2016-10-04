@@ -513,7 +513,7 @@ bool ThinStructureReconstructor::MarkSubimagePixel(const RasterizedSubimage& ras
 	}
 }
 
-cv::Mat ThinStructureReconstructor::ComputeVerticalEdgeResponse(const cv::Mat& subimage, const int& index) {
+cv::Mat ThinStructureReconstructor::ComputeVerticalEdgeMap(const cv::Mat& subimage, const int& index) {
 	cv::Mat gray;
 	cv::cvtColor(subimage, gray, CV_BGR2GRAY);
 
@@ -538,17 +538,89 @@ cv::Mat ThinStructureReconstructor::ComputeVerticalEdgeResponse(const cv::Mat& s
 	return vertical_edge_response;
 }
 
+double ThinStructureReconstructor::RetrieveSubimagePixel(const RasterizedSubimage& rasterized_subimage, const Vector2d& pixel, const cv::Mat& subimage) {
+	// TODO: support bilinear interpolation
+	const Vector2i integer_pixel(round(pixel.x), round(pixel.y));
+	if (rasterized_subimage.bounds.Contains(integer_pixel)) {
+		const Vector2i shifted_pixel = integer_pixel.ToEigenVector() - rasterized_subimage.bounds.min_bounds.ToEigenVector();
+		return subimage.at<double>(shifted_pixel.y, shifted_pixel.x);
+	} else {
+		return 0.0;
+	}
+}
+
+double ThinStructureReconstructor::RetrieveSubimageWithUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& utm_point, const cv::Mat& subimage) {
+	const Vector2d projected_pixel = camera_model.ProjectUtm(utm_point, dataset_.utm_box.utm_zone);
+	return RetrieveSubimagePixel(rasterized_subimage, projected_pixel, subimage);
+}
+
+double ThinStructureReconstructor::RetrieveSubimageWithShiftedUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& shifted_utm_point, const cv::Mat& subimage) {
+	return RetrieveSubimageWithUtmPoint(rasterized_subimage, camera_model, Vector3d(shifted_utm_point.ToEigenVector() + reference_point_.ToEigenVector()), subimage);
+}
+
+double ThinStructureReconstructor::ComputeEdgeResponse(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Mat& subimage) {
+	const double outline_angle = ComputeOutlineAngle(camera_model, cylinder);
+	double edge_response = 0.0;
+	for (int sample_index = 0; sample_index <= 500; ++sample_index) {
+		const Eigen::Vector3d sample_axis = (500 - sample_index) * 1.0 / 500 * cylinder.pa.ToEigenVector()
+			+ sample_index * 1.0 / 500 * cylinder.pb.ToEigenVector();
+		const Eigen::Vector3d dir_z = (cylinder.pb.ToEigenVector() - cylinder.pa.ToEigenVector()).normalized();
+		const Eigen::Vector3d dir_x = Eigen::Vector3d(1.0, 0.0, 0.0).cross(dir_z).normalized();
+		const Eigen::Vector3d dir_y = dir_z.cross(dir_x).normalized();
+		{
+			const double angle = outline_angle;
+			const Eigen::Vector3d vertex = sample_axis + dir_x * cylinder.r * cos(angle) + dir_y * cylinder.r * sin(angle);
+			edge_response += RetrieveSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(vertex), subimage);
+		}
+		{
+			const double angle = outline_angle > PI ? outline_angle - PI : outline_angle + PI;
+			const Eigen::Vector3d vertex = sample_axis + dir_x * cylinder.r * cos(angle) + dir_y * cylinder.r * sin(angle);
+			edge_response += RetrieveSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(vertex), subimage);
+		}
+	}
+	return edge_response;
+}
+
 void ThinStructureReconstructor::ComputeRadius() {
 	cylinder_hypotheses_with_radii_.clear();
 	for (int cylinder_index = 0; cylinder_index < cylinder_hypotheses_.size(); ++cylinder_index) {
 		const CylinderPrimitive& cylinder = cylinder_hypotheses_[cylinder_index];
+		map<int, int> radius_histogram;
+		for (int radius_division = 1; radius_division <= 100; ++radius_division) {
+			radius_histogram[radius_division] = 0;
+		}
+		double best_radius_histogram = 0.0;
+		double best_radius;
 		for (int index = 0; index < dataset_.image_cameras.size(); ++index) {
 			const ImageCamera& image_camera = dataset_.image_cameras[index];
-			cv::Mat subimage = cv::imread(image_camera.subimage.file_path, CV_LOAD_IMAGE_COLOR);
-			cv::Mat vertical_edge_response = ComputeVerticalEdgeResponse(subimage, index);
+			const cv::Mat subimage = cv::imread(image_camera.subimage.file_path, CV_LOAD_IMAGE_COLOR);
+			const cv::Mat vertical_edge_response = ComputeVerticalEdgeMap(subimage, index);
 			cv::imwrite(export_directory_ + NumberToString(index) + "_vertical_edge_response.png", vertical_edge_response);
+
+			double max_response = 0.0;
+			int max_radius_division = 0;
+
+			for (int radius_division = 1; radius_division <= 100; ++radius_division) {
+				const double radius = radius_division * 1.0 / 100;
+				CylinderPrimitive cylinder_new = cylinder;
+				cylinder.r = radius;
+
+				const double edge_response = ComputeEdgeResponse(image_camera.subimage, image_camera.camera_model, cylinder_new, vertical_edge_response);
+				if (edge_response > max_response) {
+					max_response = edge_response;
+					max_radius_division = radius_division;
+				}
+			}
+
+			if (radius_histogram[max_radius_division] > best_radius_histogram) {
+				best_radius_histogram = radius_histogram[max_radius_division];
+				best_radius = max_radius_division * 1.0 / 100;
+			}
 		}
+		CylinderPrimitive cylinder_new = cylinder;
+		cylinder_new.r = best_radius;
+		cylinder_hypotheses_with_radii_.push_back(cylinder_new);
 	}
-	//ExportCylinderPrimitives(cylinder_hypotheses_with_radii_, "cylinder_hypotheses_with_radii.dat");
-	//ExportCylinderMeshes(cylinder_hypotheses_with_radii_, "cylinder_hypotheses_with_radii.obj");
+	ExportCylinderPrimitives(cylinder_hypotheses_with_radii_, "cylinder_hypotheses_with_radii.dat");
+	ExportCylinderMeshes(cylinder_hypotheses_with_radii_, "cylinder_hypotheses_with_radii.obj");
 }
