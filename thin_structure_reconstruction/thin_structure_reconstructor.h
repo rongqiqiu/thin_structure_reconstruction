@@ -44,6 +44,7 @@ public:
 	void ExportRawSubimages();
 	void ExportSubimagesWithMarkedEcefPoint(const Vector3d& ecef_point);
 	void ExportSubimagesWithMarkedHypotheses();
+	void ComputeRadius();
 private:
 	string export_directory_;
 	Dataset dataset_;
@@ -54,6 +55,7 @@ private:
 	vector<int> index_filtered_;
 	pcl::PointCloud<pcl::PointXYZ> point_cloud_filtered_;
 	vector<CylinderPrimitive> cylinder_hypotheses_;
+	vector<CylinderPrimitive> cylinder_hypotheses_with_radii_;
 
 	void ExportPointCloud(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const string& file_name);
 	pcl::PointCloud<pcl::PointXYZ> ImportPointCloud(const string& file_name);
@@ -77,6 +79,7 @@ private:
 	void MarkSubimageWithCylinderAxis(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage);
 	double ComputeOutlineAngle(const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder);
 	void MarkSubimageWithCylinderOutline(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage);
+	cv::Mat ComputeVerticalEdgeResponse(const cv::Mat& subimage);
 };
 
 #endif

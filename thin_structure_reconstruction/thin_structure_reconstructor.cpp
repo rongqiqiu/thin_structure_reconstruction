@@ -471,7 +471,6 @@ double ThinStructureReconstructor::ComputeOutlineAngle(const ExportCameraModel& 
 		const Eigen::Vector2d vector_surface = (projected_surface_point - projected_axis_point).normalized();
 
 		double dot = fabs(vector_axis.dot(vector_surface));
-		//cout << "angle: " << angle << " dot: " << dot << endl;
 		if (dot < min_dot) {
 			min_dot = dot;
 			outline_angle = angle;
@@ -512,3 +511,34 @@ bool ThinStructureReconstructor::MarkSubimagePixel(const RasterizedSubimage& ras
 	}
 }
 
+cv::Mat ThinStructureReconstructor::ComputeVerticalEdgeResponse(const cv::Mat& subimage) {
+	cv::Mat gray;
+	cv::cvtColor(subimage, gray, cv::CV_BGR2GRAY);
+	cv::Mat grad_x, grad_y;
+	cv::Mat abs_grad_x, abs_grad_y;
+
+	cv::Sobel(gray, grad_x, cv::CV_16S, 1, 0, 3, 1, 0, cv::BORDER_DEFAULT);
+	cv::Sobel(gray, grad_y, cv::CV_16S, 0, 1, 3, 1, 0, cv::BORDER_DEFAULT);
+
+	cv::Mat raw_vertical_edge_response = cv::max(grad_x - grad_y, 0.0);
+	cv::Mat vertical_edge_response;
+	cv::normalize(raw_vertical_edge_response, vertical_edge_response, 0.0, 255.0, cv::NORM_MINMAX);
+
+	return vertical_edge_response;
+}
+
+void ThinStructureReconstructor::ComputeRadius() {
+	cylinder_hypotheses_with_radii_.clear();
+	for (int cylinder_index = 0; cylinder_index < cylinder_hypotheses_.size(); ++cylinder_index) {
+		const CylinderPrimitive& cylinder = cylinder_hypotheses_[cylinder_index];
+		for (int index = 0; index < dataset_.image_cameras.size(); ++index) {
+			const ImageCamera& image_camera = dataset_.image_cameras[index];
+			cv::Mat subimage = cv::imread(image_camera.subimage.file_path, CV_LOAD_IMAGE_COLOR);
+			cv::Mat vertical_edge_response = ComputeVerticalSubimage(subimage);
+
+			cv::imwrite(export_directory_ + NumberToString(index) + "_vertical_edge_response.png", vertical_edge_response);
+		}
+	}
+	//ExportCylinderPrimitives(cylinder_hypotheses_with_radii_, "cylinder_hypotheses_with_radii.dat");
+	//ExportCylinderMeshes(cylinder_hypotheses_with_radii_, "cylinder_hypotheses_with_radii.obj");
+}
