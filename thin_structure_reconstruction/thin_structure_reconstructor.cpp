@@ -2,6 +2,8 @@
 
 #include <Eigen/Geometry>
 
+#include <opencv2/imgproc/imgproc.hpp>
+
 #include <pcl/common/common_headers.h>
 #include <pcl/console/parse.h>
 #include <pcl/filters/extract_indices.h>
@@ -511,16 +513,25 @@ bool ThinStructureReconstructor::MarkSubimagePixel(const RasterizedSubimage& ras
 	}
 }
 
-cv::Mat ThinStructureReconstructor::ComputeVerticalEdgeResponse(const cv::Mat& subimage) {
+cv::Mat ThinStructureReconstructor::ComputeVerticalEdgeResponse(const cv::Mat& subimage, const int& index) {
 	cv::Mat gray;
-	cv::cvtColor(subimage, gray, cv::CV_BGR2GRAY);
+	cv::cvtColor(subimage, gray, CV_BGR2GRAY);
+
 	cv::Mat grad_x, grad_y;
+	cv::Sobel(gray, grad_x, CV_16S, 1, 0, 3, 1, 0, cv::BORDER_DEFAULT);
+	cv::Sobel(gray, grad_y, CV_16S, 0, 1, 3, 1, 0, cv::BORDER_DEFAULT);
+
 	cv::Mat abs_grad_x, abs_grad_y;
+	abs_grad_x = cv::abs(grad_x);
+	abs_grad_y = cv::abs(grad_y);
 
-	cv::Sobel(gray, grad_x, cv::CV_16S, 1, 0, 3, 1, 0, cv::BORDER_DEFAULT);
-	cv::Sobel(gray, grad_y, cv::CV_16S, 0, 1, 3, 1, 0, cv::BORDER_DEFAULT);
+	cv::Mat normalized_grad_x, normalized_grad_y;
+	cv::normalize(abs_grad_x, normalized_grad_x, 0.0, 255.0, cv::NORM_MINMAX);
+	cv::normalize(abs_grad_y, normalized_grad_y, 0.0, 255.0, cv::NORM_MINMAX);
+	cv::imwrite(export_directory_ + NumberToString(index) + "_normalized_grad_x.png", normalized_grad_x);
+	cv::imwrite(export_directory_ + NumberToString(index) + "_normalized_grad_y.png", normalized_grad_y);
 
-	cv::Mat raw_vertical_edge_response = cv::max(grad_x - grad_y, 0.0);
+	cv::Mat raw_vertical_edge_response = cv::max(abs_grad_x - abs_grad_y, 0.0);
 	cv::Mat vertical_edge_response;
 	cv::normalize(raw_vertical_edge_response, vertical_edge_response, 0.0, 255.0, cv::NORM_MINMAX);
 
@@ -534,8 +545,7 @@ void ThinStructureReconstructor::ComputeRadius() {
 		for (int index = 0; index < dataset_.image_cameras.size(); ++index) {
 			const ImageCamera& image_camera = dataset_.image_cameras[index];
 			cv::Mat subimage = cv::imread(image_camera.subimage.file_path, CV_LOAD_IMAGE_COLOR);
-			cv::Mat vertical_edge_response = ComputeVerticalSubimage(subimage);
-
+			cv::Mat vertical_edge_response = ComputeVerticalEdgeResponse(subimage, index);
 			cv::imwrite(export_directory_ + NumberToString(index) + "_vertical_edge_response.png", vertical_edge_response);
 		}
 	}
