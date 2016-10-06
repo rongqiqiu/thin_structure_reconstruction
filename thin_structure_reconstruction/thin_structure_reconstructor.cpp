@@ -543,12 +543,7 @@ double ThinStructureReconstructor::RetrieveSubimagePixel(const RasterizedSubimag
 	const Vector2i integer_pixel(round(pixel.x), round(pixel.y));
 	if (rasterized_subimage.bounds.Contains(integer_pixel)) {
 		const Vector2i shifted_pixel = integer_pixel.ToEigenVector() - rasterized_subimage.bounds.min_bounds.ToEigenVector();
-		//if (subimage.rows == 997 && subimage.cols == 2062) {
-		//	cout << "subimage size: " << subimage.rows << " x " << subimage.cols << endl;
-		//	cout << "shifted_pixel, y: " << shifted_pixel.y << " x: " << shifted_pixel.x << endl;
-		//}
 		return subimage.at<float>(shifted_pixel.y, shifted_pixel.x);
-		//cout << "retrieval succeed" << endl;
 	} else {
 		return 0.0;
 	}
@@ -586,7 +581,7 @@ double ThinStructureReconstructor::ComputeEdgeResponse(const RasterizedSubimage&
 	return edge_response;
 }
 
-void ThinStructureReconstructor::ComputeRadius() {
+void ThinStructureReconstructor::ComputeRadiusByVoting() {
 	cylinder_hypotheses_with_radii_.clear();
 	ofstream out_stream(export_directory_ + "radius.txt");
 	for (int cylinder_index = 0; cylinder_index < cylinder_hypotheses_.size(); ++cylinder_index) {
@@ -612,7 +607,6 @@ void ThinStructureReconstructor::ComputeRadius() {
 				CylinderPrimitive cylinder_new = cylinder;
 				cylinder_new.r = radius;
 
-				//cout << "Computing radius: " << radius << endl;
 				const double edge_response = ComputeEdgeResponse(image_camera.subimage, image_camera.camera_model, cylinder_new, vertical_edge_response);
 				cout << "Radius: " << radius << " edge response: " << edge_response << endl;
 				if (edge_response > max_response) {
@@ -646,6 +640,39 @@ void ThinStructureReconstructor::ComputeRadius() {
 		cout << "Best radius: " << best_radius << endl;
 	}
 	out_stream.close();
+	ExportCylinderPrimitives(cylinder_hypotheses_with_radii_, "cylinder_hypotheses_with_radii.dat");
+	ExportCylinderMeshes(cylinder_hypotheses_with_radii_, "cylinder_hypotheses_with_radii.obj");
+}
+
+void ThinStructureReconstructor::ComputeRadiusBySearching() {
+	cylinder_hypotheses_with_radii_.clear();
+	for (int cylinder_index = 0; cylinder_index < cylinder_hypotheses_.size(); ++cylinder_index) {
+		const CylinderPrimitive& cylinder = cylinder_hypotheses_[cylinder_index];
+		double best_sum_edge_response = 0.0;
+		double best_radius;
+		for (int radius_division = 1; radius_division <= 100; ++radius_division) {
+			const double radius = radius_division * 1.0 / 100;
+			CylinderPrimitive cylinder_new = cylinder;
+			cylinder_new.r = radius;
+			double sum_edge_response = 0.0;
+			for (int index = 0; index < dataset_.image_cameras.size(); ++index) {
+				const ImageCamera& image_camera = dataset_.image_cameras[index];
+				const cv::Mat subimage = cv::imread(image_camera.subimage.file_path, CV_LOAD_IMAGE_COLOR);
+				const cv::Mat vertical_edge_response = ComputeVerticalEdgeMap(subimage, index);
+				cv::imwrite(export_directory_ + NumberToString(index) + "_vertical_edge_response.png", vertical_edge_response * 255.0);
+
+				const double edge_response = ComputeEdgeResponse(image_camera.subimage, image_camera.camera_model, cylinder_new, vertical_edge_response);
+				sum_edge_response += edge_response;
+			}
+			if (sum_edge_response > best_sum_edge_response) {
+				best_sum_edge_response = sum_edge_response;
+				best_radius = radius;
+			}
+		}			
+		CylinderPrimitive cylinder_new = cylinder;
+		cylinder_new.r = best_radius;
+		cylinder_hypotheses_with_radii_.push_back(cylinder_new);
+	}
 	ExportCylinderPrimitives(cylinder_hypotheses_with_radii_, "cylinder_hypotheses_with_radii.dat");
 	ExportCylinderMeshes(cylinder_hypotheses_with_radii_, "cylinder_hypotheses_with_radii.obj");
 }

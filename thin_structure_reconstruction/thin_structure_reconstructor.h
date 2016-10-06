@@ -44,7 +44,8 @@ public:
 	void ExportRawSubimages();
 	void ExportSubimagesWithMarkedEcefPoint(const Vector3d& ecef_point);
 	void ExportSubimagesWithMarkedHypotheses();
-	void ComputeRadius();
+	void ComputeRadiusByVoting();
+	void ComputeRadiusBySearching();
 private:
 	string export_directory_;
 	Dataset dataset_;
