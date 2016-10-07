@@ -38,7 +38,7 @@ int main() {
 	//reconstructor.ExportRawSubimages();
 	//reconstructor.ExportSubimagesWithMarkedPoint(feature_point);
 	//reconstructor.ExportSubimagesWithMarkedHypotheses();
-	reconstructor.ComputeRadius();
+	reconstructor.ComputeRadiusBySearching();
 
 	return 0;
 }

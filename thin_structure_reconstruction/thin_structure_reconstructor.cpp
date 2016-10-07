@@ -664,6 +664,7 @@ void ThinStructureReconstructor::ComputeRadiusBySearching() {
 				const double edge_response = ComputeEdgeResponse(image_camera.subimage, image_camera.camera_model, cylinder_new, vertical_edge_response);
 				sum_edge_response += edge_response;
 			}
+			cout << "Radius: " << radius << " sum edge response: " << sum_edge_response << endl;
 			if (sum_edge_response > best_sum_edge_response) {
 				best_sum_edge_response = sum_edge_response;
 				best_radius = radius;
@@ -672,6 +673,8 @@ void ThinStructureReconstructor::ComputeRadiusBySearching() {
 		CylinderPrimitive cylinder_new = cylinder;
 		cylinder_new.r = best_radius;
 		cylinder_hypotheses_with_radii_.push_back(cylinder_new);
+
+		cout << "Best radius: " << best_radius << endl;
 	}
 	ExportCylinderPrimitives(cylinder_hypotheses_with_radii_, "cylinder_hypotheses_with_radii.dat");
 	ExportCylinderMeshes(cylinder_hypotheses_with_radii_, "cylinder_hypotheses_with_radii.obj");
