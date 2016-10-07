@@ -380,6 +380,51 @@ void ThinStructureReconstructor::LoadRANSAC() {
 void ThinStructureReconstructor::ComputeCylinderHypotheses() {
 }
 
+void ThinStructureReconstructor::LoadAndCropSubimages() {
+	cropped_image_cameras_.clear();
+	for (int index = 0; index < dataset_.image_cameras.size(); ++index) {
+		ImageCameraWithPixels image_camera_with_pixels;
+		const ImageCamera& image_camera = dataset_.image_cameras[index];
+		image_camera_with_pixels.camera_model = image_camera.camera_model;
+		const cv::Mat raw_subimage = cv::imread(image_camera.subimage.file_path, CV_LOAD_IMAGE_COLOR);
+		RasterizedSubimageWithPixels& rasterized_subimage_with_pixels = image_camera_with_pixels.subimage;
+		rasterized_subimage_with_pixels.original_image_size = image_camera.original_image_size;
+		for (int cylinder_index = 0; cylinder_index < cylinder_hypotheses_.size(); ++cylinder_index) {
+			const CylinderPrimitive& cylinder = cylinder_hypotheses_[index];
+			for (int end_index = 0; end_index <= 1; ++end_index) {
+				Vector3d point;
+				if (end_index == 0) {
+					point = cylinder.pa;
+				} else {
+					point = cylinder.pb;
+				}
+				Vector2d projected_pixel = ProjectShiftedUtmPoint(image_camera_with_pixels.camera_model, point);
+				rasterized_subimage_with_pixels.bounds.ExtendsTo(projected_pixel);
+			}
+		}
+
+		rasterized_subimage_with_pixels.bounds.Expands(100);
+		rasterized_subimage_with_pixels.bounds.Intersect(image_camera.subimage.bounds);
+
+		rasterized_subimage_with_pixels.pixels = ExtractCroppedSubimage(raw_subimage, image_camera.subimage.bounds, rasterized_subimage_with_pixels.bounds);
+
+		cv::imwrite(export_directory_ + NumberToString(index) + ".png", rasterized_subimage_with_pixels.pixels);
+
+		cropped_image_cameras_.push_back(image_camera_with_pixels);
+	}
+}
+
+cv::Mat ThinStructureReconstructor::ExtractCroppedSubimage(const cv::Mat& raw_subimage, const HalfOpenBox2i& raw_bounds, const HalfOpenBox2i& cropped_bounds) {
+	raw_subimage(cv::Rect(cropped_bounds.min_bounds.x - raw_bounds.min_bounds.x,
+						  cropped_bounds.min_bounds.y - raw_bounds.min_bounds.y,
+						  cropped_bounds.max_bounds.x - cropped_bounds.min_bounds.x,
+						  cropped_bounds.max_bounds.y - cropped_bounds.max_bounds.y));
+}
+
+Vector2d ThinStructureReconstructor::ProjectShiftedUtmPoint(const ExportCameraModel& camera_model, const Vector3d& shifted_utm_point) {
+	return camera_model.ProjectUtm(Vector3d(shifted_utm_point.ToEigenVector() + reference_point_.ToEigenVector()), dataset_.utm_box.utm_zone);
+}
+
 void ThinStructureReconstructor::ExportRawSubimages() {
 	for (int index = 0; index < dataset_.image_cameras.size(); ++index) {
 		const ImageCamera& image_camera = dataset_.image_cameras[index];

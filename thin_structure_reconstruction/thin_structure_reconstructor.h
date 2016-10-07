@@ -41,6 +41,7 @@ public:
 	void ComputeRANSAC();
 	void LoadRANSAC();
 	void ComputeCylinderHypotheses();
+	void LoadAndCropSubimages();
 	void ExportRawSubimages();
 	void ExportSubimagesWithMarkedEcefPoint(const Vector3d& ecef_point);
 	void ExportSubimagesWithMarkedHypotheses();
@@ -56,6 +57,7 @@ private:
 	vector<int> index_filtered_;
 	pcl::PointCloud<pcl::PointXYZ> point_cloud_filtered_;
 	vector<CylinderPrimitive> cylinder_hypotheses_;
+	vector<ImageCameraWithPixels> cropped_image_cameras_;
 	vector<CylinderPrimitive> cylinder_hypotheses_with_radii_;
 
 	void ExportPointCloud(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const string& file_name);
@@ -85,6 +87,8 @@ private:
 	double RetrieveSubimageWithUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& utm_point, const cv::Mat& subimage);
 	double RetrieveSubimageWithShiftedUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& shifted_utm_point, const cv::Mat& subimage);
 	double ComputeEdgeResponse(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Mat& subimage);
+	cv::Mat ExtractCroppedSubimage(const cv::Mat& raw_subimage, const HalfOpenBox2i& raw_bounds, const HalfOpenBox2i& cropped_bounds);
+	Vector2d ProjectShiftedUtmPoint(const ExportCameraModel& camera_model, const Vector3d& shifted_utm_point);
 };
 
 #endif

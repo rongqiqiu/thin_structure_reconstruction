@@ -35,10 +35,13 @@ int main() {
 	//reconstructor.ComputeRANSAC();
 	reconstructor.LoadRANSAC();
 
+	reconstructor.LoadAndCropSubimages();
+	//reconstructor.LoadCroppedSubimages();
+
 	//reconstructor.ExportRawSubimages();
 	//reconstructor.ExportSubimagesWithMarkedPoint(feature_point);
 	//reconstructor.ExportSubimagesWithMarkedHypotheses();
-	reconstructor.ComputeRadiusBySearching();
+	//reconstructor.ComputeRadiusBySearching();
 
 	return 0;
 }

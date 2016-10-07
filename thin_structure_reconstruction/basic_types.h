@@ -9,13 +9,15 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 
+#include <limits.h>
+#include <math.h>
 #include <vector>
 
 using namespace std;
 
 struct Vector3d {
 	double x, y, z;
-	Vector3d() {}
+	Vector3d() : x(0.0), y(0.0), z(0.0) {}
 	Vector3d(const double& input_x, const double& input_y, const double& input_z)
 		: x(input_x), y(input_y), z(input_z) {}
 	Vector3d(const Eigen::Vector3d& eigen_vector)
@@ -29,7 +31,7 @@ struct Vector3d {
 
 struct Vector2d {
 	double x, y;
-	Vector2d() {}
+	Vector2d() : x(0.0), y(0.0) {}
 	Vector2d(const double& input_x, const double& input_y)
 		: x(input_x), y(input_y) {}
 	Vector2d(const Eigen::Vector2d& eigen_vector)
@@ -41,7 +43,7 @@ struct Vector2d {
 
 struct Vector2i {
 	int x, y;
-	Vector2i() {}
+	Vector2i() : x(0), y(0) {}
 	Vector2i(const int& input_x, const int& input_y)
 		: x(input_x), y(input_y) {}
 	Vector2i(const Eigen::Vector2i& eigen_vector)
@@ -57,9 +59,57 @@ struct Vector2i {
 struct HalfOpenBox2i {
 	Vector2i min_bounds;
 	Vector2i max_bounds;
+	HalfOpenBox2i() {}
+	HalfOpenBox2i(const Vector2i& input_max_bounds)
+		: min_bounds(0, 0), max_bounds(input_max_bounds) {}
+	HalfOpenBox2i(const Vector2i& input_min_bounds, const Vector2i& input_max_bounds)
+		: min_bounds(input_min_bounds), max_bounds(input_max_bounds) {}
 	bool Contains(const Vector2i& point) const {
 		return point.x >= min_bounds.x && point.y >= min_bounds.y
 			&& point.x < max_bounds.x && point.y < max_bounds.y; 
+	}
+	void ExtendsTo(const Vector2i& point) {
+		if (point.x < min_bounds.x) {
+			min_bounds.x = point.x;
+		}
+		if (point.y < min_bounds.y) {
+			min_bounds.y = point.y;
+		}
+
+		if (point.x + 1 > max_bounds.x) {
+			max_bounds.x = point.x + 1;
+		}
+		if (point.y + 1 > max_bounds.y) {
+			max_bounds.y = point.y + 1;
+		}
+	}
+	void ExtendsTo(const Vector2d& point) {
+		ExtendsTo(Vector2i(floor(point.x), floor(point.y)));
+	}
+	void Expands(const int& pixels) {
+		min_bounds.x -= pixels;
+		min_bounds.y -= pixels;
+
+		max_bounds.x += pixels;
+		max_bounds.y += pixels;
+	}
+	void Intersect(const HalfOpenBox2i& box) {
+		if (box.min_bounds.x > min_bounds.x) {
+			min_bounds.x = box.min_bounds.x;
+		}
+		if (box.min_bounds.y > min_bounds.y) {
+			min_bounds.y = box.min_bounds.y;
+		}
+
+		if (box.max_bounds.x < max_bounds.x) {
+			max_bounds.x = box.max_bounds.x;
+		}
+		if (box.max_bounds.y > max_bounds.y) {
+			max_bounds.y = box.max_bounds.y;
+		}
+	}
+	bool IsEmpty() const {
+		return max_bounds.x <= min_bounds.x || max_bounds.y <= min_bounds.y;
 	}
 };
 
@@ -114,9 +164,20 @@ struct RasterizedSubimage {
 	Vector2i original_image_size;
 };
 
+struct RasterizedSubimageWithPixels {
+	HalfOpenBox2i bounds;
+	cv::Mat pixels;
+	Vector2i original_image_size;
+};
+
 struct ImageCamera {
 	ExportCameraModel camera_model;
 	RasterizedSubimage subimage;
+};
+
+struct ImageCameraWithPixels {
+	ExportCameraModel camera_model;
+	RasterizedSubimageWithPixels subimage;
 };
 
 struct StereoRaster {
