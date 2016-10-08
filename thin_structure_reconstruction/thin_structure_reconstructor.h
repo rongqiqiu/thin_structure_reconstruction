@@ -41,6 +41,8 @@ public:
 	void ComputeRANSAC();
 	void LoadRANSAC();
 	void ComputeCylinderHypotheses();
+	void ComputeExtendedVerticalCylinders();
+	void LoadExtendedVerticalCylinders();
 	void LoadAndCropSubimages();
 	void ExportRawSubimages();
 	void ExportSubimagesWithMarkedEcefPoint(const Vector3d& ecef_point);
@@ -57,6 +59,7 @@ private:
 	vector<int> index_filtered_;
 	pcl::PointCloud<pcl::PointXYZ> point_cloud_filtered_;
 	vector<CylinderPrimitive> cylinder_hypotheses_;
+	vector<CylinderPrimitive> extended_cylinder_hypotheses_;
 	vector<ImageCameraWithPixels> cropped_image_cameras_;
 	vector<CylinderPrimitive> cylinder_hypotheses_with_radii_;
 
@@ -74,6 +77,7 @@ private:
 	Vector3d ComputeXYCentroid(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const vector<int>& pointIdx);
 	void ComputeExtents(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const vector<int>& pointIdx, const Vector3d& axis, const Vector3d& point, double* min_dot, double* max_dot);
 	pcl::PointCloud<pcl::PointXYZ> ProjectXY(const pcl::PointCloud<pcl::PointXYZ>& input_cloud);
+	CylinderPrimitive ExtendVerticalCylinder(const CylinderPrimitive& cylinder);
 	bool MarkSubimagePixel(const RasterizedSubimage& rasterized_subimage, const Vector2d& pixel, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage);
 	void MarkSubimageWithEcefPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& ecef_point, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage);
 	void MarkSubimageWithUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& utm_point, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage);

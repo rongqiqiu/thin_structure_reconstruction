@@ -35,8 +35,10 @@ int main() {
 	//reconstructor.ComputeRANSAC();
 	reconstructor.LoadRANSAC();
 
+	//reconstructor.ComputeExtendedVerticalCylinders();
+	reconstructor.LoadExtendedVerticalCylinders();
+
 	reconstructor.LoadAndCropSubimages();
-	//reconstructor.LoadCroppedSubimages();
 
 	//reconstructor.ExportRawSubimages();
 	//reconstructor.ExportSubimagesWithMarkedPoint(feature_point);

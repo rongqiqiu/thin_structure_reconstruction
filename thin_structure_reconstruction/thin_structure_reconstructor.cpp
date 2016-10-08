@@ -380,17 +380,62 @@ void ThinStructureReconstructor::LoadRANSAC() {
 void ThinStructureReconstructor::ComputeCylinderHypotheses() {
 }
 
+CylinderPrimitive ThinStructureReconstructor::ExtendVerticalCylinder(const CylinderPrimitive& cylinder) {
+	CylinderPrimitive cylinder_new = cylinder;
+	double min_height = cylinder_new.pa.z;
+	double max_height = cylinder_new.pb.z;
+	for (int index = 0; index < point_cloud_.points.size(); ++index) {
+		if (Eigen::Vector2d(cylinder_new.pa.x - point_cloud_.points[index].x, 
+			                cylinder_new.pa.y - point_cloud_.points[index].y).norm() < 1.0) {
+			if (point_cloud_.points[index].z < min_height) {
+				min_height = point_cloud_.points[index].z;
+			}
+			if (point_cloud_.points[index].z > max_height) {
+				max_height = point_cloud_.points[index].z;
+			}
+		}
+	}
+	cylinder_new.pa.z = min_height;
+	cylinder_new.pb.z = max_height;
+	return cylinder_new;
+}
+
+void ThinStructureReconstructor::ComputeExtendedVerticalCylinders() {
+	cout << "Computing extended vertical cylinders" << endl;
+	extended_cylinder_hypotheses_.clear();
+	for (int cylinder_index = 0; cylinder_index < cylinder_hypotheses_.size(); ++cylinder_index) {
+		const CylinderPrimitive& cylinder = cylinder_hypotheses_[cylinder_index];
+		const CylinderPrimitive cylinder_new = ExtendVerticalCylinder(cylinder);
+		extended_cylinder_hypotheses_.push_back(cylinder_new);
+	}
+	ExportCylinderPrimitives(extended_cylinder_hypotheses_, "extended_cylinder_hypotheses.dat");
+	ExportCylinderMeshes(extended_cylinder_hypotheses_, "extended_cylinder_hypotheses.obj");
+}
+
+void ThinStructureReconstructor::LoadExtendedVerticalCylinders() {
+	cout << "Loading extended vertical cylinders" << endl;
+	extended_cylinder_hypotheses_ = ImportCylinderPrimitives("extended_cylinder_hypotheses.dat");
+	cout << "Number of extended cylinder hypotheses: " << extended_cylinder_hypotheses_.size() << endl;
+	for (int index = 0; index < extended_cylinder_hypotheses_.size(); ++index) {
+		const CylinderPrimitive& cylinder = extended_cylinder_hypotheses_[index];
+		cout << "Cylinder #" << index << ": (" << cylinder.pa.x << " " << cylinder.pa.y << " " << cylinder.pa.z << "),"
+									   << " (" << cylinder.pb.x << " " << cylinder.pb.y << " " << cylinder.pb.z << "),"
+									   << " " << cylinder.r << endl;
+	}
+}
+
 void ThinStructureReconstructor::LoadAndCropSubimages() {
 	cropped_image_cameras_.clear();
 	for (int index = 0; index < dataset_.image_cameras.size(); ++index) {
+		cout << "Loading and cropping image #" << index << endl;
 		ImageCameraWithPixels image_camera_with_pixels;
 		const ImageCamera& image_camera = dataset_.image_cameras[index];
 		image_camera_with_pixels.camera_model = image_camera.camera_model;
 		const cv::Mat raw_subimage = cv::imread(image_camera.subimage.file_path, CV_LOAD_IMAGE_COLOR);
 		RasterizedSubimageWithPixels& rasterized_subimage_with_pixels = image_camera_with_pixels.subimage;
-		rasterized_subimage_with_pixels.original_image_size = image_camera.original_image_size;
-		for (int cylinder_index = 0; cylinder_index < cylinder_hypotheses_.size(); ++cylinder_index) {
-			const CylinderPrimitive& cylinder = cylinder_hypotheses_[index];
+		rasterized_subimage_with_pixels.original_image_size = image_camera.subimage.original_image_size;
+		for (int cylinder_index = 0; cylinder_index < extended_cylinder_hypotheses_.size(); ++cylinder_index) {
+			const CylinderPrimitive& cylinder = extended_cylinder_hypotheses_[cylinder_index];
 			for (int end_index = 0; end_index <= 1; ++end_index) {
 				Vector3d point;
 				if (end_index == 0) {
@@ -398,27 +443,29 @@ void ThinStructureReconstructor::LoadAndCropSubimages() {
 				} else {
 					point = cylinder.pb;
 				}
-				Vector2d projected_pixel = ProjectShiftedUtmPoint(image_camera_with_pixels.camera_model, point);
+				const Vector2d projected_pixel = ProjectShiftedUtmPoint(image_camera_with_pixels.camera_model, point);
 				rasterized_subimage_with_pixels.bounds.ExtendsTo(projected_pixel);
 			}
 		}
-
 		rasterized_subimage_with_pixels.bounds.Expands(100);
 		rasterized_subimage_with_pixels.bounds.Intersect(image_camera.subimage.bounds);
+		cout << "Cropped bounds: (" << rasterized_subimage_with_pixels.bounds.min_bounds.x << ", " << rasterized_subimage_with_pixels.bounds.min_bounds.y << ")"
+			 << " - (" << rasterized_subimage_with_pixels.bounds.max_bounds.x << ", " << rasterized_subimage_with_pixels.bounds.max_bounds.y << ")" << endl;
 
-		rasterized_subimage_with_pixels.pixels = ExtractCroppedSubimage(raw_subimage, image_camera.subimage.bounds, rasterized_subimage_with_pixels.bounds);
-
-		cv::imwrite(export_directory_ + NumberToString(index) + ".png", rasterized_subimage_with_pixels.pixels);
-
-		cropped_image_cameras_.push_back(image_camera_with_pixels);
+		if (!rasterized_subimage_with_pixels.bounds.IsEmpty()) {
+			rasterized_subimage_with_pixels.pixels = ExtractCroppedSubimage(raw_subimage, image_camera.subimage.bounds, rasterized_subimage_with_pixels.bounds);
+			cv::imwrite(export_directory_ + NumberToString(index) + "_cropped.png", rasterized_subimage_with_pixels.pixels);
+			cropped_image_cameras_.push_back(image_camera_with_pixels);
+		}
 	}
 }
 
 cv::Mat ThinStructureReconstructor::ExtractCroppedSubimage(const cv::Mat& raw_subimage, const HalfOpenBox2i& raw_bounds, const HalfOpenBox2i& cropped_bounds) {
-	raw_subimage(cv::Rect(cropped_bounds.min_bounds.x - raw_bounds.min_bounds.x,
-						  cropped_bounds.min_bounds.y - raw_bounds.min_bounds.y,
-						  cropped_bounds.max_bounds.x - cropped_bounds.min_bounds.x,
-						  cropped_bounds.max_bounds.y - cropped_bounds.max_bounds.y));
+	const cv::Rect rect(cropped_bounds.min_bounds.x - raw_bounds.min_bounds.x,
+				  cropped_bounds.min_bounds.y - raw_bounds.min_bounds.y,
+				  cropped_bounds.max_bounds.x - cropped_bounds.min_bounds.x,
+				  cropped_bounds.max_bounds.y - cropped_bounds.min_bounds.y);
+	return raw_subimage(rect).clone();
 }
 
 Vector2d ThinStructureReconstructor::ProjectShiftedUtmPoint(const ExportCameraModel& camera_model, const Vector3d& shifted_utm_point) {
@@ -448,8 +495,8 @@ void ThinStructureReconstructor::ExportSubimagesWithMarkedHypotheses() {
 		cout << "Exporting image #" << index << endl;
 		const ImageCamera& image_camera = dataset_.image_cameras[index];
 		cv::Mat subimage = cv::imread(image_camera.subimage.file_path, CV_LOAD_IMAGE_COLOR);
-		for (int cylinder_index = 0; cylinder_index < cylinder_hypotheses_.size(); ++cylinder_index) {
-			const CylinderPrimitive& cylinder = cylinder_hypotheses_[cylinder_index];
+		for (int cylinder_index = 0; cylinder_index < extended_cylinder_hypotheses_.size(); ++cylinder_index) {
+			const CylinderPrimitive& cylinder = extended_cylinder_hypotheses_[cylinder_index];
 			MarkSubimageWithCylinderSurface(image_camera.subimage, image_camera.camera_model, cylinder, cv::Scalar(0, 255, 0), &subimage);
 			MarkSubimageWithCylinderAxis(image_camera.subimage, image_camera.camera_model, cylinder, cv::Scalar(0, 0, 255), 2.0, &subimage);
 			MarkSubimageWithCylinderOutline(image_camera.subimage, image_camera.camera_model, cylinder, cv::Scalar(255, 0, 0), 2.0, &subimage);
@@ -629,8 +676,8 @@ double ThinStructureReconstructor::ComputeEdgeResponse(const RasterizedSubimage&
 void ThinStructureReconstructor::ComputeRadiusByVoting() {
 	cylinder_hypotheses_with_radii_.clear();
 	ofstream out_stream(export_directory_ + "radius.txt");
-	for (int cylinder_index = 0; cylinder_index < cylinder_hypotheses_.size(); ++cylinder_index) {
-		const CylinderPrimitive& cylinder = cylinder_hypotheses_[cylinder_index];
+	for (int cylinder_index = 0; cylinder_index < extended_cylinder_hypotheses_.size(); ++cylinder_index) {
+		const CylinderPrimitive& cylinder = extended_cylinder_hypotheses_[cylinder_index];
 		map<int, int> radius_histogram;
 		for (int radius_division = 1; radius_division <= 100; ++radius_division) {
 			radius_histogram[radius_division] = 0;
@@ -691,8 +738,8 @@ void ThinStructureReconstructor::ComputeRadiusByVoting() {
 
 void ThinStructureReconstructor::ComputeRadiusBySearching() {
 	cylinder_hypotheses_with_radii_.clear();
-	for (int cylinder_index = 0; cylinder_index < cylinder_hypotheses_.size(); ++cylinder_index) {
-		const CylinderPrimitive& cylinder = cylinder_hypotheses_[cylinder_index];
+	for (int cylinder_index = 0; cylinder_index < extended_cylinder_hypotheses_.size(); ++cylinder_index) {
+		const CylinderPrimitive& cylinder = extended_cylinder_hypotheses_[cylinder_index];
 		double best_sum_edge_response = 0.0;
 		double best_radius;
 		for (int radius_division = 1; radius_division <= 100; ++radius_division) {

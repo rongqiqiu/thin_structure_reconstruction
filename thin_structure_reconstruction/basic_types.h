@@ -59,7 +59,7 @@ struct Vector2i {
 struct HalfOpenBox2i {
 	Vector2i min_bounds;
 	Vector2i max_bounds;
-	HalfOpenBox2i() {}
+	HalfOpenBox2i() : min_bounds(INT_MAX, INT_MAX), max_bounds(INT_MIN, INT_MIN) {}
 	HalfOpenBox2i(const Vector2i& input_max_bounds)
 		: min_bounds(0, 0), max_bounds(input_max_bounds) {}
 	HalfOpenBox2i(const Vector2i& input_min_bounds, const Vector2i& input_max_bounds)
@@ -104,7 +104,7 @@ struct HalfOpenBox2i {
 		if (box.max_bounds.x < max_bounds.x) {
 			max_bounds.x = box.max_bounds.x;
 		}
-		if (box.max_bounds.y > max_bounds.y) {
+		if (box.max_bounds.y < max_bounds.y) {
 			max_bounds.y = box.max_bounds.y;
 		}
 	}
