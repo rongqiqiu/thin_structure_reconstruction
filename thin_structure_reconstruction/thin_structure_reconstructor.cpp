@@ -865,7 +865,7 @@ void ThinStructureReconstructor::ComputeCroppedSubimagesRadiusBySearching() {
 		cv::imwrite(export_directory_ + NumberToString(index) + "_vertical_edge_response.png", vertical_edge_response * 255.0);
 		cropped_edge_maps_.push_back(vertical_edge_response);
 	}
-	TestBilinearPixelRetrieval();
+	//TestBilinearPixelRetrieval();
 	for (int cylinder_index = 0; cylinder_index < extended_cylinder_hypotheses_.size(); ++cylinder_index) {
 		const CylinderPrimitive& cylinder = extended_cylinder_hypotheses_[cylinder_index];
 		double best_sum_edge_response = 0.0;
