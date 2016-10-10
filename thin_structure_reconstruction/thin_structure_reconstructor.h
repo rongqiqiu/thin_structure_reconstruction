@@ -45,10 +45,13 @@ public:
 	void LoadExtendedVerticalCylinders();
 	void LoadAndCropSubimages();
 	void ExportRawSubimages();
-	void ExportSubimagesWithMarkedEcefPoint(const Vector3d& ecef_point);
-	void ExportSubimagesWithMarkedHypotheses();
-	void ComputeRadiusByVoting();
-	void ComputeRadiusBySearching();
+	void ExportRawSubimagesWithMarkedEcefPoint(const Vector3d& ecef_point);
+	void ExportCroppedSubimagesWithMarkedEcefPoint(const Vector3d& ecef_point);
+	void ExportRawSubimagesWithMarkedHypotheses();
+	void ExportCroppedSubimagesWithMarkedHypotheses();
+	void ComputeRawSubimagesRadiusByVoting();
+	void ComputeRawSubimagesRadiusBySearching();
+	void ComputeCroppedSubimagesRadiusBySearching();
 private:
 	string export_directory_;
 	Dataset dataset_;
@@ -60,7 +63,9 @@ private:
 	pcl::PointCloud<pcl::PointXYZ> point_cloud_filtered_;
 	vector<CylinderPrimitive> cylinder_hypotheses_;
 	vector<CylinderPrimitive> extended_cylinder_hypotheses_;
-	vector<ImageCameraWithPixels> cropped_image_cameras_;
+	vector<ImageCamera> cropped_image_cameras_;
+	vector<cv::Mat> cropped_subimages_;
+	vector<cv::Mat> cropped_edge_maps_;
 	vector<CylinderPrimitive> cylinder_hypotheses_with_radii_;
 
 	void ExportPointCloud(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const string& file_name);
@@ -82,17 +87,20 @@ private:
 	void MarkSubimageWithEcefPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& ecef_point, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage);
 	void MarkSubimageWithUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& utm_point, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage);
 	void MarkSubimageWithShiftedUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& shifted_utm_point, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage);
+	void MarkSubimageWithCylinderSurfaceAxisOutline(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Scalar& color, cv::Mat* subimage);
 	void MarkSubimageWithCylinderSurface(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Scalar& color, cv::Mat* subimage);
 	void MarkSubimageWithCylinderAxis(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage);
 	double ComputeOutlineAngle(const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder);
 	void MarkSubimageWithCylinderOutline(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage);
 	cv::Mat ComputeVerticalEdgeMap(const cv::Mat& subimage, const int& index);
+	double RetrieveSubimagePixelRounding(const RasterizedSubimage& rasterized_subimage, const Vector2d& pixel, const cv::Mat& subimage);
 	double RetrieveSubimagePixel(const RasterizedSubimage& rasterized_subimage, const Vector2d& pixel, const cv::Mat& subimage);
 	double RetrieveSubimageWithUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& utm_point, const cv::Mat& subimage);
 	double RetrieveSubimageWithShiftedUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& shifted_utm_point, const cv::Mat& subimage);
 	double ComputeEdgeResponse(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Mat& subimage);
 	cv::Mat ExtractCroppedSubimage(const cv::Mat& raw_subimage, const HalfOpenBox2i& raw_bounds, const HalfOpenBox2i& cropped_bounds);
 	Vector2d ProjectShiftedUtmPoint(const ExportCameraModel& camera_model, const Vector3d& shifted_utm_point);
+	void TestBilinearPixelRetrieval();
 };
 
 #endif

@@ -41,9 +41,14 @@ int main() {
 	reconstructor.LoadAndCropSubimages();
 
 	//reconstructor.ExportRawSubimages();
-	//reconstructor.ExportSubimagesWithMarkedPoint(feature_point);
-	//reconstructor.ExportSubimagesWithMarkedHypotheses();
-	//reconstructor.ComputeRadiusBySearching();
+	//reconstructor.ExportRawSubimagesWithMarkedEcefPoint(feature_point);
+	//reconstructor.ExportRawSubimagesWithMarkedHypotheses();
+	//reconstructor.ComputeRawSubimagesRadiusByVoting();
+	//reconstructor.ComputeRawSubimagesRadiusBySearching();
 
+	//reconstructor.ExportCroppedSubimagesWithMarkedEcefPoint(feature_point);
+	//reconstructor.ExportCroppedSubimagesWithMarkedHypotheses();
+	reconstructor.ComputeCroppedSubimagesRadiusBySearching();
+	
 	return 0;
 }

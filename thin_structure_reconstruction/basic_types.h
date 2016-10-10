@@ -68,6 +68,10 @@ struct HalfOpenBox2i {
 		return point.x >= min_bounds.x && point.y >= min_bounds.y
 			&& point.x < max_bounds.x && point.y < max_bounds.y; 
 	}
+	bool Contains(const Vector2d& point) const {
+		return point.x >= (double) min_bounds.x && point.y >= (double) min_bounds.y
+			&& point.x < (double) max_bounds.x && point.y < (double) max_bounds.y;
+	}
 	void ExtendsTo(const Vector2i& point) {
 		if (point.x < min_bounds.x) {
 			min_bounds.x = point.x;
@@ -164,20 +168,9 @@ struct RasterizedSubimage {
 	Vector2i original_image_size;
 };
 
-struct RasterizedSubimageWithPixels {
-	HalfOpenBox2i bounds;
-	cv::Mat pixels;
-	Vector2i original_image_size;
-};
-
 struct ImageCamera {
 	ExportCameraModel camera_model;
 	RasterizedSubimage subimage;
-};
-
-struct ImageCameraWithPixels {
-	ExportCameraModel camera_model;
-	RasterizedSubimageWithPixels subimage;
 };
 
 struct StereoRaster {
