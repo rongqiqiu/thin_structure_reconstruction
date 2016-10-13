@@ -81,6 +81,46 @@ void ThinStructureReconstructor::ExportCylinderMeshes(const vector<CylinderPrimi
 	out_stream.close();
 }
 
+void ThinStructureReconstructor::ExportTruncatedConePrimitives(const vector<TruncatedConePrimitive>& truncated_cones, const string& file_name) {
+	ofstream out_stream;
+	out_stream.open(export_directory_ + file_name);
+	for (int index = 0; index < truncated_cones.size(); ++index) {
+		const TruncatedConePrimitive& truncated_cone = truncated_cones[index];
+		out_stream << setprecision(8) << fixed << truncated_cone.pa.x << " " << truncated_cone.pa.y << " " << truncated_cone.pa.z << " ";
+		out_stream << setprecision(8) << fixed << truncated_cone.pb.x << " " << truncated_cone.pb.y << " " << truncated_cone.pb.z << " ";
+		out_stream << setprecision(8) << fixed << truncated_cone.ra << " " << truncated_cone.rb << endl;
+	}
+	out_stream.close();
+}
+
+void ThinStructureReconstructor::ExportTruncatedConeMeshes(const vector<TruncatedConePrimitive>& truncated_cones, const string& file_name) {
+	ofstream out_stream;
+	out_stream.open(export_directory_ + file_name);
+	int vertex_count = 0;
+	for (int index = 0; index < truncated_cones.size(); ++index) {
+		const TruncatedConePrimitive& truncated_cone = truncated_cones[index];
+		const Eigen::Vector3d dir_z = (truncated_cone.pb.ToEigenVector() - truncated_cone.pa.ToEigenVector()).normalized();
+		const Eigen::Vector3d dir_x = Eigen::Vector3d(1.0, 0.0, 0.0).cross(dir_z).normalized();
+		const Eigen::Vector3d dir_y = dir_z.cross(dir_x).normalized();
+		for (int subdivision_index = 0; subdivision_index < 16; ++subdivision_index) {
+			const double angle = subdivision_index * PI * 2.0 / 16;
+			const Eigen::Vector3d vertex = truncated_cone.pa.ToEigenVector() + dir_x * truncated_cone.ra * cos(angle) + dir_y * truncated_cone.ra * sin(angle);
+			out_stream << setprecision(8) << fixed << "v " << vertex.x() << " " << vertex.y() << " " << vertex.z() << endl;
+		}
+		for (int subdivision_index = 0; subdivision_index < 16; ++subdivision_index) {
+			const double angle = subdivision_index * PI * 2.0 / 16;
+			const Eigen::Vector3d vertex = truncated_cone.pb.ToEigenVector() + dir_x * truncated_cone.rb * cos(angle) + dir_y * truncated_cone.rb * sin(angle);
+			out_stream << setprecision(8) << fixed << "v " << vertex.x() << " " << vertex.y() << " " << vertex.z() << endl;
+		}
+		for (int subdivision_index = 0; subdivision_index < 16; ++subdivision_index) {
+			out_stream << "f " << vertex_count + subdivision_index + 1 << " " << vertex_count + (subdivision_index + 1) % 16 + 1 << " " << vertex_count + subdivision_index + 16 + 1 << endl;
+			out_stream << "f " << vertex_count + (subdivision_index + 1) % 16 + 1 << " " << vertex_count + (subdivision_index + 1) % 16 + 16 + 1 << " " << vertex_count + subdivision_index + 16 + 1 << endl;
+		}
+		vertex_count += 16 * 2;
+	}
+	out_stream.close();
+}
+
 vector<CylinderPrimitive> ThinStructureReconstructor::ImportCylinderPrimitives(const string& file_name) {
 	vector<CylinderPrimitive> cylinders;
 	ifstream in_stream;
@@ -94,6 +134,23 @@ vector<CylinderPrimitive> ThinStructureReconstructor::ImportCylinderPrimitives(c
 	}
 	in_stream.close();
 	return cylinders;
+}
+
+vector<TruncatedConePrimitive> ThinStructureReconstructor::ImportTruncatedConePrimitives(const string& file_name) {
+	vector<TruncatedConePrimitive> truncated_cones;
+	ifstream in_stream;
+	in_stream.open(export_directory_ + file_name);
+	TruncatedConePrimitive truncated_cone;
+	string line;
+	while (getline(in_stream, line)) {
+		istringstream iss(line);
+		iss >> truncated_cone.pa.x >> truncated_cone.pa.y >> truncated_cone.pa.z;
+		iss >> truncated_cone.pb.x >> truncated_cone.pb.y >> truncated_cone.pb.z;
+		iss >> truncated_cone.ra >> truncated_cone.rb;
+		truncated_cones.push_back(truncated_cone);
+	}
+	in_stream.close();
+	return truncated_cones;
 }
 
 pcl::PointCloud<pcl::PointXYZ> ThinStructureReconstructor::ImportPointCloud(const string& file_name) {
@@ -590,7 +647,7 @@ double ThinStructureReconstructor::ComputeOutlineAngle(const ExportCameraModel& 
 	const Eigen::Vector3d dir_y = dir_z.cross(dir_x).normalized();
 	for (int subdivision_index = 0; subdivision_index < 64; ++subdivision_index) {
 		const double angle = subdivision_index * PI * 2.0 / 64;
-		const Eigen::Vector3d surface_point = axis_point + dir_x * cylinder.r * cos(angle) + dir_y * cylinder.r * sin(angle);
+		const Eigen::Vector3d surface_point = axis_point + dir_x * cos(angle) + dir_y * sin(angle);
 		const Eigen::Vector2d projected_surface_point = camera_model.ProjectUtm(Vector3d(surface_point + reference_point_.ToEigenVector()), dataset_.utm_box.utm_zone).ToEigenVector();
 
 		const Eigen::Vector2d vector_surface = (projected_surface_point - projected_axis_point).normalized();
@@ -602,6 +659,14 @@ double ThinStructureReconstructor::ComputeOutlineAngle(const ExportCameraModel& 
 		}
 	}
 	return outline_angle;
+}
+
+double ThinStructureReconstructor::ComputeOutlineAngle(const ExportCameraModel& camera_model, const TruncatedConePrimitive& truncated_cone) {
+	CylinderPrimitive cylinder;
+	cylinder.pa = truncated_cone.pa;
+	cylinder.pb = truncated_cone.pb;
+	cylinder.r = 1.0;
+	return ComputeOutlineAngle(camera_model, cylinder);
 }
 
 void ThinStructureReconstructor::MarkSubimageWithCylinderOutline(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage) {
@@ -709,7 +774,7 @@ double ThinStructureReconstructor::RetrieveSubimageWithShiftedUtmPoint(const Ras
 	return RetrieveSubimageWithUtmPoint(rasterized_subimage, camera_model, Vector3d(shifted_utm_point.ToEigenVector() + reference_point_.ToEigenVector()), subimage);
 }
 
-double ThinStructureReconstructor::ComputeEdgeResponse(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Mat& subimage) {
+double ThinStructureReconstructor::ComputeCylinderEdgeResponse(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Mat& subimage) {
 	const double outline_angle = ComputeOutlineAngle(camera_model, cylinder);
 	double edge_response = 0.0;
 	for (int sample_index = 0; sample_index <= 500; ++sample_index) {
@@ -732,9 +797,34 @@ double ThinStructureReconstructor::ComputeEdgeResponse(const RasterizedSubimage&
 	return edge_response;
 }
 
+double ThinStructureReconstructor::ComputeTruncatedConeEdgeResponse(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const TruncatedConePrimitive& truncated_cone, const cv::Mat& subimage) {
+	const double outline_angle = ComputeOutlineAngle(camera_model, truncated_cone);
+	double edge_response = 0.0;
+	for (int sample_index = 0; sample_index <= 500; ++sample_index) {
+		const Eigen::Vector3d sample_axis = (500 - sample_index) * 1.0 / 500 * truncated_cone.pa.ToEigenVector()
+			+ sample_index * 1.0 / 500 * truncated_cone.pb.ToEigenVector();
+		const double sample_radius = (500 - sample_index) * 1.0 / 500 * truncated_cone.ra
+			+ sample_index * 1.0 / 500 * truncated_cone.rb;
+		const Eigen::Vector3d dir_z = (truncated_cone.pb.ToEigenVector() - truncated_cone.pa.ToEigenVector()).normalized();
+		const Eigen::Vector3d dir_x = Eigen::Vector3d(1.0, 0.0, 0.0).cross(dir_z).normalized();
+		const Eigen::Vector3d dir_y = dir_z.cross(dir_x).normalized();
+		{
+			const double angle = outline_angle;
+			const Eigen::Vector3d vertex = sample_axis + dir_x * sample_radius * cos(angle) + dir_y * sample_radius * sin(angle);
+			edge_response += RetrieveSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(vertex), subimage);
+		}
+		{
+			const double angle = outline_angle > PI ? outline_angle - PI : outline_angle + PI;
+			const Eigen::Vector3d vertex = sample_axis + dir_x * sample_radius * cos(angle) + dir_y * sample_radius * sin(angle);
+			edge_response += RetrieveSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(vertex), subimage);
+		}
+	}
+	return edge_response;
+}
+
 void ThinStructureReconstructor::ComputeRawSubimagesRadiusByVoting() {
 	cylinder_hypotheses_with_radii_.clear();
-	ofstream out_stream(export_directory_ + "radius.txt");
+	ofstream out_stream(export_directory_ + "radius_by_voting.txt");
 	for (int cylinder_index = 0; cylinder_index < extended_cylinder_hypotheses_.size(); ++cylinder_index) {
 		const CylinderPrimitive& cylinder = extended_cylinder_hypotheses_[cylinder_index];
 		map<int, int> radius_histogram;
@@ -758,7 +848,7 @@ void ThinStructureReconstructor::ComputeRawSubimagesRadiusByVoting() {
 				CylinderPrimitive cylinder_new = cylinder;
 				cylinder_new.r = radius;
 
-				const double edge_response = ComputeEdgeResponse(image_camera.subimage, image_camera.camera_model, cylinder_new, vertical_edge_response);
+				const double edge_response = ComputeCylinderEdgeResponse(image_camera.subimage, image_camera.camera_model, cylinder_new, vertical_edge_response);
 				cout << "Radius: " << radius << " edge response: " << edge_response << endl;
 				if (edge_response > max_response) {
 					max_response = edge_response;
@@ -799,6 +889,7 @@ void ThinStructureReconstructor::ComputeRawSubimagesRadiusBySearching() {
 	clock_t start = clock();
 	cout << "Computing radius by searching" << endl;
 	cylinder_hypotheses_with_radii_.clear();
+	ofstream out_stream(export_directory_ + "radius_by_searching.txt");
 	for (int cylinder_index = 0; cylinder_index < extended_cylinder_hypotheses_.size(); ++cylinder_index) {
 		const CylinderPrimitive& cylinder = extended_cylinder_hypotheses_[cylinder_index];
 		double best_sum_edge_response = 0.0;
@@ -814,10 +905,11 @@ void ThinStructureReconstructor::ComputeRawSubimagesRadiusBySearching() {
 				const cv::Mat vertical_edge_response = ComputeVerticalEdgeMap(subimage, index);
 				cv::imwrite(export_directory_ + NumberToString(index) + "_vertical_edge_response.png", vertical_edge_response * 255.0);
 
-				const double edge_response = ComputeEdgeResponse(image_camera.subimage, image_camera.camera_model, cylinder_new, vertical_edge_response);
+				const double edge_response = ComputeCylinderEdgeResponse(image_camera.subimage, image_camera.camera_model, cylinder_new, vertical_edge_response);
 				sum_edge_response += edge_response;
 			}
 			cout << "Radius: " << radius << " sum edge response: " << sum_edge_response << endl;
+			out_stream << setprecision(2) << fixed << radius << " " << sum_edge_response << endl;
 			if (sum_edge_response > best_sum_edge_response) {
 				best_sum_edge_response = sum_edge_response;
 				best_radius = radius;
@@ -829,8 +921,9 @@ void ThinStructureReconstructor::ComputeRawSubimagesRadiusBySearching() {
 
 		cout << "Best radius: " << best_radius << endl;
 	}
-	double duration = (clock() - start) / (double)CLOCKS_PER_SEC;
+	double duration = (clock() - start) / (double) CLOCKS_PER_SEC;
 	cout << "Time spent in computing radius by searching: " << duration << "s" << endl;
+	out_stream.close();
 	ExportCylinderPrimitives(cylinder_hypotheses_with_radii_, "cylinder_hypotheses_with_radii.dat");
 	ExportCylinderMeshes(cylinder_hypotheses_with_radii_, "cylinder_hypotheses_with_radii.obj");
 }
@@ -854,10 +947,8 @@ void ThinStructureReconstructor::TestBilinearPixelRetrieval() {
 	cout << endl;
 }
 
-void ThinStructureReconstructor::ComputeCroppedSubimagesRadiusBySearching() {
-	clock_t start = clock();
-	cout << "Computing radius by searching" << endl;
-	cylinder_hypotheses_with_radii_.clear();
+void ThinStructureReconstructor::ComputeCroppedSubimageVerticalEdgeMaps() {
+	cout << "Computing vertical edge maps on cropped subimages" << endl;
 	cropped_edge_maps_.clear();
 	for (int index = 0; index < cropped_image_cameras_.size(); ++index) {
 		const cv::Mat& subimage = cropped_subimages_[index];
@@ -865,7 +956,15 @@ void ThinStructureReconstructor::ComputeCroppedSubimagesRadiusBySearching() {
 		cv::imwrite(export_directory_ + NumberToString(index) + "_vertical_edge_response.png", vertical_edge_response * 255.0);
 		cropped_edge_maps_.push_back(vertical_edge_response);
 	}
+}
+
+void ThinStructureReconstructor::ComputeCroppedSubimagesRadiusBySearching() {
+	clock_t start = clock();
+	cout << "Computing radius by searching" << endl;
+	cylinder_hypotheses_with_radii_.clear();
 	//TestBilinearPixelRetrieval();
+	ofstream out_stream(export_directory_ + "radius_by_searching_cropped_subimages.txt");
+	ofstream out_stream_vector(export_directory_ + "radius_vector_by_searching_cropped_subimages.txt");
 	for (int cylinder_index = 0; cylinder_index < extended_cylinder_hypotheses_.size(); ++cylinder_index) {
 		const CylinderPrimitive& cylinder = extended_cylinder_hypotheses_[cylinder_index];
 		double best_sum_edge_response = 0.0;
@@ -879,23 +978,76 @@ void ThinStructureReconstructor::ComputeCroppedSubimagesRadiusBySearching() {
 				const ImageCamera& image_camera = cropped_image_cameras_[index];
 				const cv::Mat& vertical_edge_response = cropped_edge_maps_[index];
 
-				const double edge_response = ComputeEdgeResponse(image_camera.subimage, image_camera.camera_model, cylinder_new, vertical_edge_response);
+				const double edge_response = ComputeCylinderEdgeResponse(image_camera.subimage, image_camera.camera_model, cylinder_new, vertical_edge_response);
 				sum_edge_response += edge_response;
 			}
 			cout << "Radius: " << radius << " sum edge response: " << sum_edge_response << endl;
+			out_stream << setprecision(2) << fixed << radius << " " << sum_edge_response << endl;
+			out_stream_vector << setprecision(2) << fixed << sum_edge_response << " ";
 			if (sum_edge_response > best_sum_edge_response) {
 				best_sum_edge_response = sum_edge_response;
 				best_radius = radius;
 			}
 		}			
+		out_stream_vector << endl;
+
 		CylinderPrimitive cylinder_new = cylinder;
 		cylinder_new.r = best_radius;
 		cylinder_hypotheses_with_radii_.push_back(cylinder_new);
 
 		cout << "Best radius: " << best_radius << endl;
 	}
-	double duration = (clock() - start) / (double)CLOCKS_PER_SEC;
+	double duration = (clock() - start) / (double) CLOCKS_PER_SEC;
 	cout << "Time spent in computing radius by searching: " << duration << "s" << endl;
+	out_stream.close();
+	out_stream_vector.close();
 	ExportCylinderPrimitives(cylinder_hypotheses_with_radii_, "cylinder_hypotheses_with_radii.dat");
 	ExportCylinderMeshes(cylinder_hypotheses_with_radii_, "cylinder_hypotheses_with_radii.obj");
+}
+
+void ThinStructureReconstructor::ComputeCroppedSubimageTruncatedCones() {
+	clock_t start = clock();
+	cout << "Computing radii of truncated cones" << endl;
+	truncated_cone_hypotheses_with_radii_.clear();
+	ofstream out_stream(export_directory_ + "radii_truncated_cones_by_searching_cropped_subimages.txt");
+	ofstream out_stream_matrix(export_directory_ + "radii_matrix_truncated_cones_by_searching_cropped_subimages.txt");
+	for (int cylinder_index = 0; cylinder_index < extended_cylinder_hypotheses_.size(); ++cylinder_index) {
+		const CylinderPrimitive& cylinder = extended_cylinder_hypotheses_[cylinder_index];
+		double best_sum_edge_response = 0.0;
+		TruncatedConePrimitive best_truncated_cone;
+		for (int radius_a_division = 1; radius_a_division <= 100; ++radius_a_division) {
+			const double radius_a = radius_a_division * 1.0 / 100;
+			for (int radius_b_division = 1; radius_b_division <= 100; ++radius_b_division) {
+				const double radius_b = radius_b_division * 1.0 / 100;
+				TruncatedConePrimitive truncated_cone(cylinder);
+				truncated_cone.ra = radius_a;
+				truncated_cone.rb = radius_b;
+				double sum_edge_response = 0.0;
+				for (int index = 0; index < cropped_image_cameras_.size(); ++index) {
+					const ImageCamera& image_camera = cropped_image_cameras_[index];
+					const cv::Mat& vertical_edge_response = cropped_edge_maps_[index];
+
+					const double edge_response = ComputeTruncatedConeEdgeResponse(image_camera.subimage, image_camera.camera_model, truncated_cone, vertical_edge_response);
+					sum_edge_response += edge_response;
+				}
+				cout << "Radius (buttom): " << radius_a << " radius (top): " << radius_b << " sum edge response: " << sum_edge_response << endl;
+				out_stream << setprecision(2) << fixed << radius_a << " " << radius_b << " " << sum_edge_response << endl;
+				out_stream_matrix << setprecision(2) << fixed << sum_edge_response << " ";
+				if (sum_edge_response > best_sum_edge_response) {
+					best_sum_edge_response = sum_edge_response;
+					best_truncated_cone = truncated_cone;
+				}
+			}
+			out_stream_matrix << endl;
+		}			
+		truncated_cone_hypotheses_with_radii_.push_back(best_truncated_cone);
+
+		cout << "Best radius (buttom): " << best_truncated_cone.ra << " best radius (top): " << best_truncated_cone.rb << endl;
+	}
+	double duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+	cout << "Time spent in computing radii of truncated cones: " << duration << "s" << endl;
+	out_stream.close();
+	out_stream_matrix.close();
+	ExportTruncatedConePrimitives(truncated_cone_hypotheses_with_radii_, "truncated_cone_hypotheses_with_radii.dat");
+	ExportTruncatedConeMeshes(truncated_cone_hypotheses_with_radii_, "truncated_cone_hypotheses_with_radii.obj");
 }

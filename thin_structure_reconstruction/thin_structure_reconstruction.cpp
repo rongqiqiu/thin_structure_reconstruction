@@ -48,7 +48,10 @@ int main() {
 
 	//reconstructor.ExportCroppedSubimagesWithMarkedEcefPoint(feature_point);
 	//reconstructor.ExportCroppedSubimagesWithMarkedHypotheses();
-	reconstructor.ComputeCroppedSubimagesRadiusBySearching();
+	reconstructor.ComputeCroppedSubimageVerticalEdgeMaps();
+
+	//reconstructor.ComputeCroppedSubimagesRadiusBySearching();
+	reconstructor.ComputeCroppedSubimageTruncatedCones();
 	
 	return 0;
 }

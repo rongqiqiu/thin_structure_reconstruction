@@ -11,6 +11,14 @@ struct CylinderPrimitive {
 	double r;
 };
 
+struct TruncatedConePrimitive {
+	Vector3d pa, pb; // pa: center of bottom end; pb: center of top end
+	double ra, rb; // ra: radius of bottom end; rb: center of top end
+	TruncatedConePrimitive() {}
+	TruncatedConePrimitive(const CylinderPrimitive& cylinder)
+		: pa(cylinder.pa), pb(cylinder.pb), ra(cylinder.r), rb(cylinder.r) {}
+};
+
 class ThinStructureReconstructor {
 public:
 	ThinStructureReconstructor() {}
@@ -51,7 +59,9 @@ public:
 	void ExportCroppedSubimagesWithMarkedHypotheses();
 	void ComputeRawSubimagesRadiusByVoting();
 	void ComputeRawSubimagesRadiusBySearching();
+	void ComputeCroppedSubimageVerticalEdgeMaps();
 	void ComputeCroppedSubimagesRadiusBySearching();
+	void ComputeCroppedSubimageTruncatedCones();
 private:
 	string export_directory_;
 	Dataset dataset_;
@@ -67,6 +77,7 @@ private:
 	vector<cv::Mat> cropped_subimages_;
 	vector<cv::Mat> cropped_edge_maps_;
 	vector<CylinderPrimitive> cylinder_hypotheses_with_radii_;
+	vector<TruncatedConePrimitive> truncated_cone_hypotheses_with_radii_;
 
 	void ExportPointCloud(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const string& file_name);
 	pcl::PointCloud<pcl::PointXYZ> ImportPointCloud(const string& file_name);
@@ -78,7 +89,10 @@ private:
 	CylinderPrimitive ComputeVerticalLine(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const vector<int>& pointIdx);
 	void ExportCylinderPrimitives(const vector<CylinderPrimitive>& cylinders, const string& file_name);
 	void ExportCylinderMeshes(const vector<CylinderPrimitive>& cylinders, const string& file_name);
+	void ExportTruncatedConePrimitives(const vector<TruncatedConePrimitive>& truncated_cones, const string& file_name);
+	void ExportTruncatedConeMeshes(const vector<TruncatedConePrimitive>& truncated_cones, const string& file_name);
 	vector<CylinderPrimitive> ImportCylinderPrimitives(const string& file_name);
+	vector<TruncatedConePrimitive> ImportTruncatedConePrimitives(const string& file_name);
 	Vector3d ComputeXYCentroid(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const vector<int>& pointIdx);
 	void ComputeExtents(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const vector<int>& pointIdx, const Vector3d& axis, const Vector3d& point, double* min_dot, double* max_dot);
 	pcl::PointCloud<pcl::PointXYZ> ProjectXY(const pcl::PointCloud<pcl::PointXYZ>& input_cloud);
@@ -91,13 +105,15 @@ private:
 	void MarkSubimageWithCylinderSurface(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Scalar& color, cv::Mat* subimage);
 	void MarkSubimageWithCylinderAxis(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage);
 	double ComputeOutlineAngle(const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder);
+	double ComputeOutlineAngle(const ExportCameraModel& camera_model, const TruncatedConePrimitive& truncated_cone);
 	void MarkSubimageWithCylinderOutline(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage);
 	cv::Mat ComputeVerticalEdgeMap(const cv::Mat& subimage, const int& index);
 	double RetrieveSubimagePixelRounding(const RasterizedSubimage& rasterized_subimage, const Vector2d& pixel, const cv::Mat& subimage);
 	double RetrieveSubimagePixel(const RasterizedSubimage& rasterized_subimage, const Vector2d& pixel, const cv::Mat& subimage);
 	double RetrieveSubimageWithUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& utm_point, const cv::Mat& subimage);
 	double RetrieveSubimageWithShiftedUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& shifted_utm_point, const cv::Mat& subimage);
-	double ComputeEdgeResponse(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Mat& subimage);
+	double ComputeCylinderEdgeResponse(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Mat& subimage);
+	double ComputeTruncatedConeEdgeResponse(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const TruncatedConePrimitive& truncated_cone, const cv::Mat& subimage);
 	cv::Mat ExtractCroppedSubimage(const cv::Mat& raw_subimage, const HalfOpenBox2i& raw_bounds, const HalfOpenBox2i& cropped_bounds);
 	Vector2d ProjectShiftedUtmPoint(const ExportCameraModel& camera_model, const Vector3d& shifted_utm_point);
 	void TestBilinearPixelRetrieval();
