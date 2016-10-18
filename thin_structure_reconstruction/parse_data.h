@@ -20,8 +20,8 @@ using namespace std;
 class DataParser {
 public:
 	DataParser() 
-		: parsed_(false), export_raw_points_(false), export_user_points_(false),
-		  import_user_points_(false), radius_(0.0) {}
+		: export_raw_points_(false), export_user_points_(false),
+		  import_user_points_(false), radius_(0.0), utm_reference_point_(-1.0, -1.0, -1.0) {}
 	void SetRadius(double input_radius) {
 		radius_ = input_radius;
 	}
@@ -47,14 +47,11 @@ public:
 		import_user_points_ = import_user_points;
 	}
 	void Parse();
+	void Parse(const int& dataset_index, const int& region_index, const Vector3d& utm_reference_point);
 	vector<Dataset> GetDatasets() {
-		if (!parsed_) {
-			Parse();
-		}
 		return datasets_;
 	}
 private:
-	bool parsed_;
 	bool export_raw_points_;
 	bool export_user_points_;
 	bool import_user_points_;
@@ -63,12 +60,15 @@ private:
 	string metadata_file_name_;
 	vector<Dataset> datasets_;
 	double radius_;
+	Vector3d utm_reference_point_;
 	stereo_export::Metadata ParseMetadata();
 	stereo_export::StereoRasterPoints ParseStereoRasterPoints(const string& relative_path);
 	Dataset ParseDataset(const stereo_export::DatasetMetadata& dataset_metadata, const string& raw_utm_file_name, const string& raw_ecef_file_name, const string& user_utm_file_name, const string& user_ecef_file_name);
 	vector<Dataset> ParseDatasets(const stereo_export::Metadata& metadata);
+	vector<Dataset> ParseDatasets(const stereo_export::Metadata& metadata, const int& dataset_index, const int& region_index);
 	vector<StereoRaster> ParseStereoRasters(const google::protobuf::RepeatedPtrField<stereo_export::StereoRasterMetadata>& stereo_rasters, const UTMBox& utm_box_user, vector<Vector3d>* points_utm, const UTMBox& utm_box_raw, const string& raw_utm_file_name, const string& raw_ecef_file_name, const string& user_utm_file_name, const string& user_ecef_file_name);
 	vector<ImageCamera> ParseImageCameras(const google::protobuf::RepeatedPtrField<stereo_export::ImageCameraMetadata>& image_cameras);
+	bool IsValidUtmPoint(const Vector3d& utm_point);
 };
 
 Eigen::Matrix3d ProtoToMatrix(const stereo_export::Matrix3x3d& input_matrix);

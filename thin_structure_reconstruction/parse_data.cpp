@@ -193,6 +193,10 @@ stereo_export::StereoRasterPoints DataParser::ParseStereoRasterPoints(const stri
 	return stereo_raster_points;
 }
 
+bool DataParser::IsValidUtmPoint(const Vector3d& utm_point) {
+	return utm_point.x >= 0 && utm_point.y >= 0;
+}
+
 Dataset DataParser::ParseDataset(const stereo_export::DatasetMetadata& dataset_metadata, const string& raw_utm_file_name, const string& raw_ecef_file_name, const string& user_utm_file_name, const string& user_ecef_file_name) {
 	double utm_x, utm_y;
 	string utm_zone;
@@ -202,8 +206,14 @@ Dataset DataParser::ParseDataset(const stereo_export::DatasetMetadata& dataset_m
 	cout << "utm_zone = " << utm_zone << endl;
 	Dataset dataset;
 	UTMBox utm_box_raw = ComputeUTMBox(utm_x, utm_y, utm_zone, dataset_metadata.radius_meters());
-	UTMBox utm_box_user = ComputeUTMBox(utm_x, utm_y, utm_zone, radius_);
-	dataset.utm_reference_point = Vector3d(utm_x, utm_y, 0.0);
+	UTMBox utm_box_user;
+	if (IsValidUtmPoint(utm_reference_point_)) {
+		utm_box_user = ComputeUTMBox(utm_reference_point_.x, utm_reference_point_.y, utm_zone, radius_);
+		dataset.utm_reference_point = Vector3d(utm_reference_point_.x, utm_reference_point_.y, 0.0);
+	} else {
+		utm_box_user = ComputeUTMBox(utm_x, utm_y, utm_zone, radius_);
+		dataset.utm_reference_point = Vector3d(utm_x, utm_y, 0.0);
+	}
 	dataset.utm_box = utm_box_user;
 	dataset.stereo_rasters = ParseStereoRasters(dataset_metadata.stereo_raster(), utm_box_user, &(dataset.points_utm), utm_box_raw, raw_utm_file_name, raw_ecef_file_name, user_utm_file_name, user_ecef_file_name);
 	dataset.image_cameras = ParseImageCameras(dataset_metadata.image_camera());
@@ -229,9 +239,28 @@ vector<Dataset> DataParser::ParseDatasets(const stereo_export::Metadata& metadat
 	return datasets;
 }
 
+vector<Dataset> DataParser::ParseDatasets(const stereo_export::Metadata& metadata, const int& dataset_index, const int& region_index) {
+	cout << "About to parse Dataset #" << dataset_index << "." << endl;
+	vector<Dataset> datasets;
+	datasets.emplace_back(ParseDataset(metadata.dataset(dataset_index),
+		export_directory_ + NumberToString(dataset_index) + "/" + NumberToString(region_index) + "/raw_utm.xyz",
+		export_directory_ + NumberToString(dataset_index) + "/" + NumberToString(region_index) + "/raw_ecef.xyz",
+		export_directory_ + NumberToString(dataset_index) + "/" + NumberToString(region_index) + "/user_utm.xyz",
+		export_directory_ + NumberToString(dataset_index) + "/" + NumberToString(region_index) + "/user_ecef.xyz"
+		));
+	return datasets;
+}
+
 void DataParser::Parse() {
 	const stereo_export::Metadata metadata = ParseMetadata();
 	datasets_ = ParseDatasets(metadata);
 	cout << "Parsing succeeded!" << endl;
-	parsed_ = true;
+}
+
+void DataParser::Parse(const int& dataset_index, const int& region_index, const Vector3d& utm_reference_point) {
+	const stereo_export::Metadata metadata = ParseMetadata();
+	utm_reference_point_ = utm_reference_point;
+	datasets_ = ParseDatasets(metadata, dataset_index, region_index);
+	utm_reference_point_ = Vector3d(-1.0, -1.0, -1.0);
+	cout << "Parsing Dataset #" << dataset_index << " succeeded!" << endl;
 }
