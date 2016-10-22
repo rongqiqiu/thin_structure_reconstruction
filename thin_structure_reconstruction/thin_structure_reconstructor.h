@@ -65,6 +65,9 @@ public:
 	void ComputeCroppedSubimageTruncatedCones();
 	void ComputeCroppedSubimageTruncatedConesWithOffsets();
 	void LoadTruncatedConesWithRadii();
+	void LoadTruncatedConesWithRadiiOffsets();
+	void ComputeCroppedSubimageTruncatedConesExtents();
+	void LoadTruncatedConesWithRadiiOffsetsExtents();
 private:
 	string export_directory_;
 	Dataset dataset_;
@@ -82,6 +85,7 @@ private:
 	vector<CylinderPrimitive> cylinder_hypotheses_with_radii_;
 	vector<TruncatedConePrimitive> truncated_cone_hypotheses_with_radii_;
 	vector<TruncatedConePrimitive> truncated_cone_hypotheses_with_radii_offsets_;
+	vector<TruncatedConePrimitive> truncated_cone_hypotheses_with_radii_offsets_extents_;
 
 	void ExportPointCloud(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const string& file_name);
 	pcl::PointCloud<pcl::PointXYZ> ImportPointCloud(const string& file_name);
@@ -98,7 +102,7 @@ private:
 	vector<CylinderPrimitive> ImportCylinderPrimitives(const string& file_name);
 	vector<TruncatedConePrimitive> ImportTruncatedConePrimitives(const string& file_name);
 	Vector3d ComputeXYCentroid(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const vector<int>& pointIdx);
-	void ComputeExtents(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const vector<int>& pointIdx, const Vector3d& axis, const Vector3d& point, double* min_dot, double* max_dot);
+	void ComputeExtentsFromPointCloud(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const vector<int>& pointIdx, const Vector3d& axis, const Vector3d& point, double* min_dot, double* max_dot);
 	pcl::PointCloud<pcl::PointXYZ> ProjectXY(const pcl::PointCloud<pcl::PointXYZ>& input_cloud);
 	CylinderPrimitive ExtendVerticalCylinder(const CylinderPrimitive& cylinder);
 	bool MarkSubimagePixel(const RasterizedSubimage& rasterized_subimage, const Vector2d& pixel, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage);
@@ -129,6 +133,7 @@ private:
 	void ExportCroppedSubimagesWithMarkedTruncatedCones(const vector<TruncatedConePrimitive>& truncated_cones, const string& file_name);
 	bool FindBestNeighborRadiiOffsets(const TruncatedConePrimitive& truncated_cone, const TruncatedConePrimitive& original_truncated_cone, TruncatedConePrimitive* best_neighbor_truncated_cone);
 	bool FindBestNeighborRadiiOffsetsMultiThreading(const TruncatedConePrimitive& truncated_cone, const TruncatedConePrimitive& original_truncated_cone, TruncatedConePrimitive* best_neighbor_truncated_cone);
+	bool ComputeExtentsFromCroppedSubimages(const TruncatedConePrimitive& truncated_cone, TruncatedConePrimitive* truncated_cone_extents);
 public:
 	friend void ThreadHelperFunc(ThinStructureReconstructor* thin_structure_reconstructor, TruncatedConePrimitive* truncated_cone, double* result);
 };

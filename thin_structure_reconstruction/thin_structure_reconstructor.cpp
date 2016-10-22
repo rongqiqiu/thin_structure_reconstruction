@@ -339,7 +339,7 @@ Vector3d ThinStructureReconstructor::ComputeXYCentroid(const pcl::PointCloud<pcl
 	return centroid;
 }
 
-void ThinStructureReconstructor::ComputeExtents(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const vector<int>& pointIdx, const Vector3d& axis, const Vector3d& point, double* min_dot, double* max_dot) {
+void ThinStructureReconstructor::ComputeExtentsFromPointCloud(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const vector<int>& pointIdx, const Vector3d& axis, const Vector3d& point, double* min_dot, double* max_dot) {
 	if (pointIdx.empty() || min_dot == NULL || max_dot == NULL) {
 		return;
 	}
@@ -359,7 +359,7 @@ CylinderPrimitive ThinStructureReconstructor::ComputeVerticalLine(const pcl::Poi
 	const Vector3d centroid = ComputeXYCentroid(point_cloud, pointIdx);
 	const Vector3d axis(0.0, 0.0, 1.0);
 	double min_height, max_height;
-	ComputeExtents(point_cloud, pointIdx, axis, centroid, &min_height, &max_height);
+	ComputeExtentsFromPointCloud(point_cloud, pointIdx, axis, centroid, &min_height, &max_height);
 	CylinderPrimitive cylinder;
 	cylinder.pa = Vector3d(centroid.ToEigenVector() + axis.ToEigenVector() * min_height);
 	cylinder.pb = Vector3d(centroid.ToEigenVector() + axis.ToEigenVector() * max_height);
@@ -493,25 +493,30 @@ void ThinStructureReconstructor::LoadAndCropSubimages() {
 		cropped_image_camera.camera_model = image_camera.camera_model;
 		const cv::Mat raw_subimage = cv::imread(image_camera.subimage.file_path, CV_LOAD_IMAGE_COLOR);
 		cropped_image_camera.subimage.original_image_size = image_camera.subimage.original_image_size;
+		bool is_vertical = true;
 		for (int cylinder_index = 0; cylinder_index < extended_cylinder_hypotheses_.size(); ++cylinder_index) {
 			const CylinderPrimitive& cylinder = extended_cylinder_hypotheses_[cylinder_index];
-			for (int end_index = 0; end_index <= 1; ++end_index) {
-				Vector3d point;
-				if (end_index == 0) {
-					point = cylinder.pa;
-				} else {
-					point = cylinder.pb;
-				}
-				const Vector2d projected_pixel = ProjectShiftedUtmPoint(cropped_image_camera.camera_model, point);
-				cropped_image_camera.subimage.bounds.ExtendsTo(projected_pixel);
+			const Vector2d projected_pixel_a = ProjectShiftedUtmPoint(cropped_image_camera.camera_model, cylinder.pa);
+			const Vector2d projected_pixel_b = ProjectShiftedUtmPoint(cropped_image_camera.camera_model, cylinder.pb);
+			cropped_image_camera.subimage.bounds.ExtendsTo(projected_pixel_a);
+			cropped_image_camera.subimage.bounds.ExtendsTo(projected_pixel_b);
+
+			const Eigen::Vector2d axis_vector = (projected_pixel_b.ToEigenVector() - projected_pixel_a.ToEigenVector()).normalized();
+			const Eigen::Vector2d vertical_vector(0.0, 1.0);
+			const double dot_product = axis_vector.dot(vertical_vector);
+			if (fabs(dot_product) < 0.9) {
+				is_vertical = false;
 			}
 		}
-		cropped_image_camera.subimage.bounds.Expands(100);
 		cropped_image_camera.subimage.bounds.Intersect(image_camera.subimage.bounds);
-		cout << "Cropped bounds: (" << cropped_image_camera.subimage.bounds.min_bounds.x << ", " << cropped_image_camera.subimage.bounds.min_bounds.y << ")"
-			 << " - (" << cropped_image_camera.subimage.bounds.max_bounds.x << ", " << cropped_image_camera.subimage.bounds.max_bounds.y << ")" << endl;
+		//cout << "Is vertical: " << is_vertical << endl;
+		//cout << "Cropped bounds: (" << cropped_image_camera.subimage.bounds.min_bounds.x << ", " << cropped_image_camera.subimage.bounds.min_bounds.y << ")"
+		//	 << " - (" << cropped_image_camera.subimage.bounds.max_bounds.x << ", " << cropped_image_camera.subimage.bounds.max_bounds.y << ")" << endl;
+		//cout << "Is non-empty: " << !cropped_image_camera.subimage.bounds.IsEmpty() << endl;
 
-		if (!cropped_image_camera.subimage.bounds.IsEmpty()) {
+		if (!cropped_image_camera.subimage.bounds.IsEmpty() && is_vertical) {
+			cropped_image_camera.subimage.bounds.Expands(100);
+			cropped_image_camera.subimage.bounds.Intersect(image_camera.subimage.bounds);
 			cv::Mat cropped_subimage = ExtractCroppedSubimage(raw_subimage, image_camera.subimage.bounds, cropped_image_camera.subimage.bounds);
 			cv::imwrite(export_directory_ + NumberToString(output_index) + "_cropped.png", cropped_subimage);
 			++output_index;
@@ -885,6 +890,7 @@ double ThinStructureReconstructor::ComputeTruncatedConeSumEdgeResponse(const Tru
 		const double edge_response = ComputeTruncatedConeEdgeResponse(image_camera.subimage, image_camera.camera_model, truncated_cone, vertical_edge_response);
 		sum_edge_response += edge_response;
 	}
+	sum_edge_response /= cropped_image_cameras_.size();
 	return sum_edge_response;
 }
 
@@ -1127,8 +1133,8 @@ void ThinStructureReconstructor::ExportCroppedSubimagesWithMarkedTruncatedCones(
 		cout << "Exporting image #" << index << endl;
 		const ImageCamera& image_camera = cropped_image_cameras_[index];
 		cv::Mat subimage = cropped_subimages_[index].clone();
-		for (int truncated_cone_index = 0; truncated_cone_index < truncated_cone_hypotheses_with_radii_.size(); ++truncated_cone_index) {
-			const TruncatedConePrimitive& truncated_cone = truncated_cone_hypotheses_with_radii_[truncated_cone_index];
+		for (int truncated_cone_index = 0; truncated_cone_index < truncated_cones.size(); ++truncated_cone_index) {
+			const TruncatedConePrimitive& truncated_cone = truncated_cones[truncated_cone_index];
 			MarkSubimageWithTruncatedConeSurfaceAxisOutline(image_camera.subimage, image_camera.camera_model, truncated_cone, &subimage);
 		}
 		cv::imwrite(export_directory_ + NumberToString(index) + file_name + ".png", subimage);
@@ -1272,7 +1278,7 @@ void ThinStructureReconstructor::ComputeCroppedSubimageTruncatedConesWithOffsets
 			iteration_times ++;
 			cout << "iteration #" << iteration_times << endl;
 		}	
-		truncated_cone_hypotheses_with_radii_.push_back(truncated_cone);
+		truncated_cone_hypotheses_with_radii_offsets_.push_back(truncated_cone);
 		cout << "Best radius (buttom): " << truncated_cone.ra << " best radius (top): " << truncated_cone.rb << endl;
 	}
 	double duration = (clock() - start) / (double) CLOCKS_PER_SEC;
@@ -1280,4 +1286,63 @@ void ThinStructureReconstructor::ComputeCroppedSubimageTruncatedConesWithOffsets
 	ExportTruncatedConePrimitives(truncated_cone_hypotheses_with_radii_offsets_, "truncated_cone_hypotheses_with_radii_offsets.dat");
 	ExportTruncatedConeMeshes(truncated_cone_hypotheses_with_radii_offsets_, "truncated_cone_hypotheses_with_radii_offsets.obj");
 	ExportCroppedSubimagesWithMarkedTruncatedCones(truncated_cone_hypotheses_with_radii_offsets_, "_marked_truncated_cones_with_radii_offsets");
+}
+
+void ThinStructureReconstructor::LoadTruncatedConesWithRadiiOffsets() {
+	cout << "Loading truncated cones with radii and offsets" << endl;
+	truncated_cone_hypotheses_with_radii_offsets_ = ImportTruncatedConePrimitives("truncated_cone_hypotheses_with_radii_offsets.dat");
+}
+
+bool ThinStructureReconstructor::ComputeExtentsFromCroppedSubimages(const TruncatedConePrimitive& truncated_cone, TruncatedConePrimitive* truncated_cone_extents) {
+	const int num_axial_sections = max(1, (int) ((truncated_cone.pa.ToEigenVector() - truncated_cone.pb.ToEigenVector()).norm() * 10));
+	cout << "num axial sections: " << num_axial_sections << endl;
+	vector<TruncatedConePrimitive> truncated_cone_axial_sections(num_axial_sections);
+	vector<double> sum_edge_responses_truncated_cone_axial_sections(num_axial_sections);
+	int min_index = -1;
+	int max_index = -1;
+	for (int index_axial_section = 0; index_axial_section < num_axial_sections; ++index_axial_section) {
+		const double alpha_a = index_axial_section * 1.0 / num_axial_sections;
+		const double alpha_b = (index_axial_section + 1) * 1.0 / num_axial_sections;
+		truncated_cone_axial_sections[index_axial_section].pa = Vector3d((1.0 - alpha_a) * truncated_cone.pa.ToEigenVector() + alpha_a * truncated_cone.pb.ToEigenVector());
+		truncated_cone_axial_sections[index_axial_section].pb = Vector3d((1.0 - alpha_b) * truncated_cone.pa.ToEigenVector() + alpha_b * truncated_cone.pb.ToEigenVector());
+		truncated_cone_axial_sections[index_axial_section].ra = (1.0 - alpha_a) * truncated_cone.ra + alpha_a * truncated_cone.rb;
+		truncated_cone_axial_sections[index_axial_section].rb = (1.0 - alpha_b) * truncated_cone.ra + alpha_b * truncated_cone.rb;
+		sum_edge_responses_truncated_cone_axial_sections[index_axial_section] = ComputeTruncatedConeSumEdgeResponse(truncated_cone_axial_sections[index_axial_section]);
+		cout << "index axial section: " << index_axial_section << " sum edge response: " << sum_edge_responses_truncated_cone_axial_sections[index_axial_section] << endl;
+		if (sum_edge_responses_truncated_cone_axial_sections[index_axial_section] >= 100.0 && (min_index < 0 || index_axial_section < min_index)) {
+			min_index = index_axial_section;
+		}
+		if (sum_edge_responses_truncated_cone_axial_sections[index_axial_section] >= 100.0 && (max_index < 0 || index_axial_section > max_index)) {
+			max_index = index_axial_section;
+		}
+	}
+	cout << "min index: " << min_index << " max index: " << max_index << endl;
+	if (min_index < 0 || max_index < 0) return false;
+	const double alpha_a = min_index * 1.0 / num_axial_sections;
+	const double alpha_b = (max_index + 1) * 1.0 / num_axial_sections;
+	truncated_cone_extents->pa = Vector3d((1.0 - alpha_a) * truncated_cone.pa.ToEigenVector() + alpha_a * truncated_cone.pb.ToEigenVector());
+	truncated_cone_extents->pb = Vector3d((1.0 - alpha_b) * truncated_cone.pa.ToEigenVector() + alpha_b * truncated_cone.pb.ToEigenVector());
+	truncated_cone_extents->ra = (1.0 - alpha_a) * truncated_cone.ra + alpha_a * truncated_cone.rb;
+	truncated_cone_extents->rb = (1.0 - alpha_b) * truncated_cone.ra + alpha_b * truncated_cone.rb;
+	return truncated_cone_extents;
+}
+
+void ThinStructureReconstructor::ComputeCroppedSubimageTruncatedConesExtents() {
+	cout << "Computing extents of truncated cones" << endl;
+	truncated_cone_hypotheses_with_radii_offsets_extents_.clear();
+	for (int truncated_cone_index = 0; truncated_cone_index < truncated_cone_hypotheses_with_radii_offsets_.size(); ++truncated_cone_index) {
+		const TruncatedConePrimitive& truncated_cone = truncated_cone_hypotheses_with_radii_offsets_[truncated_cone_index];
+		TruncatedConePrimitive truncated_cone_extents;
+		if (ComputeExtentsFromCroppedSubimages(truncated_cone, &truncated_cone_extents)) {
+			truncated_cone_hypotheses_with_radii_offsets_extents_.push_back(truncated_cone_extents);
+		}
+	}
+	ExportTruncatedConePrimitives(truncated_cone_hypotheses_with_radii_offsets_extents_, "truncated_cone_hypotheses_with_radii_offsets_extents.dat");
+	ExportTruncatedConeMeshes(truncated_cone_hypotheses_with_radii_offsets_extents_, "truncated_cone_hypotheses_with_radii_offsets_extents.obj");
+	ExportCroppedSubimagesWithMarkedTruncatedCones(truncated_cone_hypotheses_with_radii_offsets_extents_, "_marked_truncated_cones_with_radii_offsets_extents");
+}
+
+void ThinStructureReconstructor::LoadTruncatedConesWithRadiiOffsetsExtents() {
+	cout << "Loading truncated cones with radii, offsets and extents" << endl;
+	truncated_cone_hypotheses_with_radii_offsets_extents_ = ImportTruncatedConePrimitives("truncated_cone_hypotheses_with_radii_offsets_extents.dat");
 }
