@@ -47,10 +47,14 @@ public:
 		import_user_points_ = import_user_points;
 	}
 	void Parse();
-	void Parse(const int& dataset_index, const int& region_index, const Vector3d& utm_reference_point);
+	void Parse(const int& dataset_index, const int& region_index);
 	vector<Dataset> GetDatasets() {
 		return datasets_;
 	}
+	void SetUtmReferencePoint(const Vector3d& utm_reference_point) {
+		utm_reference_point_ = utm_reference_point;
+	}
+	void LoadUtmReferencePoint(const int& dataset_index, const int& region_index, const string& file_name);
 private:
 	bool export_raw_points_;
 	bool export_user_points_;

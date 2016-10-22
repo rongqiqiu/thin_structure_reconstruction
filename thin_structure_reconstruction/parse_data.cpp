@@ -257,10 +257,15 @@ void DataParser::Parse() {
 	cout << "Parsing succeeded!" << endl;
 }
 
-void DataParser::Parse(const int& dataset_index, const int& region_index, const Vector3d& utm_reference_point) {
+void DataParser::Parse(const int& dataset_index, const int& region_index) {
 	const stereo_export::Metadata metadata = ParseMetadata();
-	utm_reference_point_ = utm_reference_point;
 	datasets_ = ParseDatasets(metadata, dataset_index, region_index);
 	utm_reference_point_ = Vector3d(-1.0, -1.0, -1.0);
 	cout << "Parsing Dataset #" << dataset_index << " succeeded!" << endl;
+}
+
+void DataParser::LoadUtmReferencePoint(const int& dataset_index, const int& region_index, const string& file_name) {
+	ifstream input_file(export_directory_ + NumberToString(dataset_index) + "/" + NumberToString(region_index) + "/" + file_name);
+	input_file >> utm_reference_point_.x >> utm_reference_point_.y >> utm_reference_point_.z;
+	input_file.close();
 }
