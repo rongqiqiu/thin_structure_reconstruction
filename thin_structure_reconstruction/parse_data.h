@@ -47,14 +47,14 @@ public:
 		import_user_points_ = import_user_points;
 	}
 	void Parse();
-	void Parse(const int& dataset_index, const int& region_index);
+	void Parse(const int& dataset_index, const string& region_index);
 	vector<Dataset> GetDatasets() {
 		return datasets_;
 	}
 	void SetUtmReferencePoint(const Vector3d& utm_reference_point) {
 		utm_reference_point_ = utm_reference_point;
 	}
-	void LoadUtmReferencePoint(const int& dataset_index, const int& region_index, const string& file_name);
+	void LoadUtmReferencePoint(const int& dataset_index, const string& region_index, const string& file_name);
 private:
 	bool export_raw_points_;
 	bool export_user_points_;
@@ -69,7 +69,7 @@ private:
 	stereo_export::StereoRasterPoints ParseStereoRasterPoints(const string& relative_path);
 	Dataset ParseDataset(const stereo_export::DatasetMetadata& dataset_metadata, const string& raw_utm_file_name, const string& raw_ecef_file_name, const string& user_utm_file_name, const string& user_ecef_file_name);
 	vector<Dataset> ParseDatasets(const stereo_export::Metadata& metadata);
-	vector<Dataset> ParseDatasets(const stereo_export::Metadata& metadata, const int& dataset_index, const int& region_index);
+	vector<Dataset> ParseDatasets(const stereo_export::Metadata& metadata, const int& dataset_index, const string& region_index);
 	vector<StereoRaster> ParseStereoRasters(const google::protobuf::RepeatedPtrField<stereo_export::StereoRasterMetadata>& stereo_rasters, const UTMBox& utm_box_user, vector<Vector3d>* points_utm, const UTMBox& utm_box_raw, const string& raw_utm_file_name, const string& raw_ecef_file_name, const string& user_utm_file_name, const string& user_ecef_file_name);
 	vector<ImageCamera> ParseImageCameras(const google::protobuf::RepeatedPtrField<stereo_export::ImageCameraMetadata>& image_cameras);
 	bool IsValidUtmPoint(const Vector3d& utm_point);

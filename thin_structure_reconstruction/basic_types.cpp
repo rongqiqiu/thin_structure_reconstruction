@@ -68,6 +68,13 @@ string NumberToString(const int& number) {
 	return oss.str();
 }
 
+int StringToNumber(const string& str) {
+	int number;
+	istringstream iss(str);
+	iss >> number;
+	return number;
+}
+
 string ReadFileToString(const string& full_path) {
 	ifstream inf(full_path);
 	stringstream strStream;

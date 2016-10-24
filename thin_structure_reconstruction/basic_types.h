@@ -194,6 +194,7 @@ void EcefToUTM(const double& ecef_x, const double& ecef_y, const double& ecef_z,
 void UTMToEcef(const double& utm_x, const double& utm_y, const double& utm_z, const string& utm_zone, double* ecef_x, double* ecef_y, double* ecef_z);
 
 string NumberToString(const int& number);
+int StringToNumber(const string& str);
 string ReadFileToString(const string& relative_path);
 int round(const double& number);
 

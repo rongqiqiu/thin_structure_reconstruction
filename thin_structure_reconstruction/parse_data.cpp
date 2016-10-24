@@ -239,14 +239,14 @@ vector<Dataset> DataParser::ParseDatasets(const stereo_export::Metadata& metadat
 	return datasets;
 }
 
-vector<Dataset> DataParser::ParseDatasets(const stereo_export::Metadata& metadata, const int& dataset_index, const int& region_index) {
+vector<Dataset> DataParser::ParseDatasets(const stereo_export::Metadata& metadata, const int& dataset_index, const string& region_index) {
 	cout << "About to parse Dataset #" << dataset_index << "." << endl;
 	vector<Dataset> datasets;
 	datasets.emplace_back(ParseDataset(metadata.dataset(dataset_index),
-		export_directory_ + NumberToString(dataset_index) + "/" + NumberToString(region_index) + "/raw_utm.xyz",
-		export_directory_ + NumberToString(dataset_index) + "/" + NumberToString(region_index) + "/raw_ecef.xyz",
-		export_directory_ + NumberToString(dataset_index) + "/" + NumberToString(region_index) + "/user_utm.xyz",
-		export_directory_ + NumberToString(dataset_index) + "/" + NumberToString(region_index) + "/user_ecef.xyz"
+		export_directory_ + NumberToString(dataset_index) + "/" + region_index + "/raw_utm.xyz",
+		export_directory_ + NumberToString(dataset_index) + "/" + region_index + "/raw_ecef.xyz",
+		export_directory_ + NumberToString(dataset_index) + "/" + region_index + "/user_utm.xyz",
+		export_directory_ + NumberToString(dataset_index) + "/" + region_index + "/user_ecef.xyz"
 		));
 	return datasets;
 }
@@ -257,15 +257,15 @@ void DataParser::Parse() {
 	cout << "Parsing succeeded!" << endl;
 }
 
-void DataParser::Parse(const int& dataset_index, const int& region_index) {
+void DataParser::Parse(const int& dataset_index, const string& region_index) {
 	const stereo_export::Metadata metadata = ParseMetadata();
 	datasets_ = ParseDatasets(metadata, dataset_index, region_index);
 	utm_reference_point_ = Vector3d(-1.0, -1.0, -1.0);
 	cout << "Parsing Dataset #" << dataset_index << " succeeded!" << endl;
 }
 
-void DataParser::LoadUtmReferencePoint(const int& dataset_index, const int& region_index, const string& file_name) {
-	ifstream input_file(export_directory_ + NumberToString(dataset_index) + "/" + NumberToString(region_index) + "/" + file_name);
+void DataParser::LoadUtmReferencePoint(const int& dataset_index, const string& region_index, const string& file_name) {
+	ifstream input_file(export_directory_ + NumberToString(dataset_index) + "/" + region_index + "/" + file_name);
 	input_file >> utm_reference_point_.x >> utm_reference_point_.y >> utm_reference_point_.z;
 	input_file.close();
 }
