@@ -86,6 +86,7 @@ int main(int argc, char** argv) {
 	cout << "Time: " << asctime(localtime(&result)) << endl;
 
 	//reconstructor.ExportCroppedSubimagesWithMarkedEcefPoint(feature_point);
+
 	reconstructor.ExportCroppedSubimagesWithMarkedHypotheses();
 
 	result = time(NULL);
@@ -103,15 +104,18 @@ int main(int argc, char** argv) {
 	//result = time(NULL);
 	//cout << "Time: " << asctime(localtime(&result)) << endl;
 
-	reconstructor.ComputeCroppedSubimageTruncatedConesWithOffsets();
+	//reconstructor.ComputeCroppedSubimageTruncatedConesWithOffsets();
 	//reconstructor.LoadTruncatedConesWithRadiiOffsets();
 
-	result = time(NULL);
-	cout << "Time: " << asctime(localtime(&result)) << endl;
+	//result = time(NULL);
+	//cout << "Time: " << asctime(localtime(&result)) << endl;
 
-	reconstructor.ComputeCroppedSubimageTruncatedConesExtents();
+	//reconstructor.ComputeCroppedSubimageTruncatedConesExtents();
 	//reconstructor.LoadTruncatedConesWithRadiiOffsetsExtents();
-	
+
+	reconstructor.ComputeCroppedSubimageTruncatedConesWithOffsetsExtents();
+	//reconstructor.LoadTruncatedConesWithRadiiOffsetsExtents();
+
 	result = time(NULL);
 	cout << "Finishing time: " << asctime(localtime(&result)) << endl;
 	//stream_log.close();

@@ -266,6 +266,10 @@ void DataParser::Parse(const int& dataset_index, const string& region_index) {
 
 void DataParser::LoadUtmReferencePoint(const int& dataset_index, const string& region_index, const string& file_name) {
 	ifstream input_file(export_directory_ + NumberToString(dataset_index) + "/" + region_index + "/" + file_name);
-	input_file >> utm_reference_point_.x >> utm_reference_point_.y >> utm_reference_point_.z;
+	if (input_file.is_open()) {
+		input_file >> utm_reference_point_.x >> utm_reference_point_.y >> utm_reference_point_.z;
+	} else {
+		utm_reference_point_ = Vector3d(-1.0, -1.0, -1.0);
+	}
 	input_file.close();
 }

@@ -10,6 +10,9 @@
 struct CylinderPrimitive {
 	Vector3d pa, pb;
 	double r;
+	double GetLength() {
+		return (pa.ToEigenVector() - pb.ToEigenVector()).norm();
+	}
 };
 
 struct TruncatedConePrimitive {
@@ -18,6 +21,9 @@ struct TruncatedConePrimitive {
 	TruncatedConePrimitive() {}
 	TruncatedConePrimitive(const CylinderPrimitive& cylinder)
 		: pa(cylinder.pa), pb(cylinder.pb), ra(cylinder.r), rb(cylinder.r) {}
+	double GetLength() {
+		return (pa.ToEigenVector() - pb.ToEigenVector()).norm();
+	}
 };
 
 class ThinStructureReconstructor {
@@ -68,6 +74,7 @@ public:
 	void LoadTruncatedConesWithRadiiOffsets();
 	void ComputeCroppedSubimageTruncatedConesExtents();
 	void LoadTruncatedConesWithRadiiOffsetsExtents();
+	void ComputeCroppedSubimageTruncatedConesWithOffsetsExtents();
 private:
 	string export_directory_;
 	Dataset dataset_;
@@ -132,7 +139,7 @@ private:
 	void TestBilinearPixelRetrieval();
 	void ExportCroppedSubimagesWithMarkedTruncatedCones(const vector<TruncatedConePrimitive>& truncated_cones, const string& file_name);
 	bool FindBestNeighborRadiiOffsets(const TruncatedConePrimitive& truncated_cone, const TruncatedConePrimitive& original_truncated_cone, TruncatedConePrimitive* best_neighbor_truncated_cone);
-	bool FindBestNeighborRadiiOffsetsMultiThreading(const TruncatedConePrimitive& truncated_cone, const TruncatedConePrimitive& original_truncated_cone, TruncatedConePrimitive* best_neighbor_truncated_cone);
+	bool FindBestNeighborRadiiOffsetsMultiThreading(const TruncatedConePrimitive& truncated_cone, const TruncatedConePrimitive& original_truncated_cone, TruncatedConePrimitive* best_neighbor_truncated_cone, double* best_sum_edge_response);
 	bool ComputeExtentsFromCroppedSubimages(const TruncatedConePrimitive& truncated_cone, TruncatedConePrimitive* truncated_cone_extents);
 public:
 	friend void ThreadHelperFunc(ThinStructureReconstructor* thin_structure_reconstructor, TruncatedConePrimitive* truncated_cone, double* result);

@@ -235,6 +235,7 @@ void ThinStructureReconstructor::ApplyRandomSubsampling(const double& sampling_r
 void ThinStructureReconstructor::ComputePCAValues() {
 	pca_values_.clear();
 	cout << "Computing PCA values" << endl;
+	//ApplyRandomSubsampling(1.0);
 	ApplyRandomSubsampling(0.2);
 	pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
 	kdtree.setInputCloud(point_cloud_subsampled_.makeShared());
@@ -246,7 +247,7 @@ void ThinStructureReconstructor::ComputePCAValues() {
 		const pcl::PointXYZ& point = point_cloud_.points[index];
 		vector<int> pointIdx;
 		vector<float> pointSquaredDistance;
-		kdtree.radiusSearch(point, 3.0, pointIdx, pointSquaredDistance);
+		kdtree.radiusSearch(point, 1.0, pointIdx, pointSquaredDistance);
 		pca_values_.push_back(ComputePCAValue(pointIdx));
 	}
 	if (pca_values_.size() != point_cloud_.points.size()) {
@@ -608,14 +609,14 @@ void ThinStructureReconstructor::MarkSubimageWithShiftedUtmPoint(const Rasterize
 
 void ThinStructureReconstructor::MarkSubimageWithCylinderSurfaceAxisOutline(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, cv::Mat* subimage) {
 	MarkSubimageWithCylinderSurface(rasterized_subimage, camera_model, cylinder, cv::Scalar(0, 255, 0), subimage);
-	MarkSubimageWithCylinderAxis(rasterized_subimage, camera_model, cylinder, cv::Scalar(0, 0, 255), 2.0, subimage);
-	MarkSubimageWithCylinderOutline(rasterized_subimage, camera_model, cylinder, cv::Scalar(255, 0, 0), 2.0, subimage);
+	MarkSubimageWithCylinderAxis(rasterized_subimage, camera_model, cylinder, cv::Scalar(0, 0, 255), 1.0, subimage);
+	MarkSubimageWithCylinderOutline(rasterized_subimage, camera_model, cylinder, cv::Scalar(255, 0, 0), 1.0, subimage);
 }
 
 void ThinStructureReconstructor::MarkSubimageWithTruncatedConeSurfaceAxisOutline(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const TruncatedConePrimitive& truncated_cone, cv::Mat* subimage) {
 	MarkSubimageWithTruncatedConeSurface(rasterized_subimage, camera_model, truncated_cone, cv::Scalar(0, 255, 0), subimage);
-	MarkSubimageWithTruncatedConeAxis(rasterized_subimage, camera_model, truncated_cone, cv::Scalar(0, 0, 255), 2.0, subimage);
-	MarkSubimageWithTruncatedConeOutline(rasterized_subimage, camera_model, truncated_cone, cv::Scalar(255, 0, 0), 2.0, subimage);
+	MarkSubimageWithTruncatedConeAxis(rasterized_subimage, camera_model, truncated_cone, cv::Scalar(0, 0, 255), 1.0, subimage);
+	MarkSubimageWithTruncatedConeOutline(rasterized_subimage, camera_model, truncated_cone, cv::Scalar(255, 0, 0), 1.0, subimage);
 }
 
 void ThinStructureReconstructor::MarkSubimageWithCylinderSurface(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Scalar& color, cv::Mat* subimage) {
@@ -1196,10 +1197,14 @@ bool ThinStructureReconstructor::FindBestNeighborRadiiOffsets(const TruncatedCon
 }
 
 void ThreadHelperFunc(ThinStructureReconstructor* thin_structure_reconstructor, TruncatedConePrimitive* truncated_cone, double* result) {
-	*result = thin_structure_reconstructor->ComputeTruncatedConeSumEdgeResponse(*truncated_cone);
+	if (truncated_cone->ra <= 0.05 + 1e-3 || truncated_cone->rb <= 0.05 + 1e-3) {
+		*result = 0.0;
+	} else {
+		*result = thin_structure_reconstructor->ComputeTruncatedConeSumEdgeResponse(*truncated_cone);
+	}
 }
 
-bool ThinStructureReconstructor::FindBestNeighborRadiiOffsetsMultiThreading(const TruncatedConePrimitive& truncated_cone, const TruncatedConePrimitive& original_truncated_cone, TruncatedConePrimitive* best_neighbor_truncated_cone) {
+bool ThinStructureReconstructor::FindBestNeighborRadiiOffsetsMultiThreading(const TruncatedConePrimitive& truncated_cone, const TruncatedConePrimitive& original_truncated_cone, TruncatedConePrimitive* best_neighbor_truncated_cone, double* best_sum_edge_response) {
 	clock_t start = clock();
 	const int num_neighbors = 3*3*3*3*3*3;
 	vector<boost::thread*> threads(num_neighbors, NULL);
@@ -1236,14 +1241,14 @@ bool ThinStructureReconstructor::FindBestNeighborRadiiOffsetsMultiThreading(cons
 	for (int index = 0; index < num_neighbors; ++index) {
 		threads[index] = new boost::thread(ThreadHelperFunc, this, &(neighbors[index]), &(results[index]));
 	}
-	double best_sum_edge_response = 0.0;
+	*best_sum_edge_response = 0.0;
 	double is_local_maxima = false;
 	for (int index = 0; index < num_neighbors; ++index) {
 		threads[index]->join();
 		delete threads[index];
 		const double sum_edge_response = results[index];
-		if (sum_edge_response > best_sum_edge_response) {
-			best_sum_edge_response = sum_edge_response;
+		if (sum_edge_response > *best_sum_edge_response) {
+			*best_sum_edge_response = sum_edge_response;
 			*best_neighbor_truncated_cone = neighbors[index];
 			if (index == num_neighbors / 2) {
 				is_local_maxima = true;
@@ -1262,24 +1267,41 @@ bool ThinStructureReconstructor::FindBestNeighborRadiiOffsetsMultiThreading(cons
 }
 
 void ThinStructureReconstructor::ComputeCroppedSubimageTruncatedConesWithOffsets() {
+	vector<pair<double, double> > radii_initials;
+	radii_initials.push_back(make_pair(0.1, 0.1));
+	radii_initials.push_back(make_pair(0.2, 0.2));
+
 	clock_t start = clock();
 	cout << "Computing radii and offsets of truncated cones" << endl;
 	truncated_cone_hypotheses_with_radii_offsets_.clear();
 	for (int cylinder_index = 0; cylinder_index < extended_cylinder_hypotheses_.size(); ++cylinder_index) {
-		const CylinderPrimitive& cylinder = extended_cylinder_hypotheses_[cylinder_index];
-		TruncatedConePrimitive truncated_cone(cylinder);
-		truncated_cone.ra = truncated_cone.rb = 0.2;
-		const TruncatedConePrimitive original_truncated_cone = truncated_cone;
-		TruncatedConePrimitive best_neighbor_truncated_cone;
-		int iteration_times = 1;
-		cout << "iteration #" << iteration_times << endl;
-		while (FindBestNeighborRadiiOffsetsMultiThreading(truncated_cone, original_truncated_cone, &best_neighbor_truncated_cone)) {
-			truncated_cone = best_neighbor_truncated_cone;
-			iteration_times ++;
+		double best_sum_edge_response = 0.0;
+		TruncatedConePrimitive best_truncated_cone;
+		for (int initial_index = 0; initial_index < radii_initials.size(); ++initial_index) {
+			const CylinderPrimitive& cylinder = extended_cylinder_hypotheses_[cylinder_index];
+			TruncatedConePrimitive truncated_cone(cylinder);
+			truncated_cone.ra = radii_initials[initial_index].first;
+			truncated_cone.rb = radii_initials[initial_index].second;
+			const TruncatedConePrimitive original_truncated_cone = truncated_cone;
+			TruncatedConePrimitive current_neighbor_truncated_cone;
+			double current_sum_edge_response;
+			int iteration_times = 1;
 			cout << "iteration #" << iteration_times << endl;
-		}	
-		truncated_cone_hypotheses_with_radii_offsets_.push_back(truncated_cone);
-		cout << "Best radius (buttom): " << truncated_cone.ra << " best radius (top): " << truncated_cone.rb << endl;
+			while (FindBestNeighborRadiiOffsetsMultiThreading(truncated_cone, original_truncated_cone, &current_neighbor_truncated_cone, &current_sum_edge_response)) {
+				truncated_cone = current_neighbor_truncated_cone;
+				iteration_times ++;
+				cout << "iteration #" << iteration_times << endl;
+			}	
+			cout << "Adjusted radius (buttom): " << truncated_cone.ra << " radius (top): " << truncated_cone.rb << endl;
+			cout << "Adjusted sum edge response: " << current_sum_edge_response << endl;
+			if (current_sum_edge_response > best_sum_edge_response) {
+				best_sum_edge_response = current_sum_edge_response;
+				best_truncated_cone = truncated_cone;
+			}
+		}
+		truncated_cone_hypotheses_with_radii_offsets_.push_back(best_truncated_cone);
+		cout << "Best radius (buttom): " << best_truncated_cone.ra << " radius (top): " << best_truncated_cone.rb << endl;
+		cout << "Best sum edge response: " << best_sum_edge_response << endl;
 	}
 	double duration = (clock() - start) / (double) CLOCKS_PER_SEC;
 	cout << "Time spent in computing radii and offsets of truncated cones: " << duration << "s" << endl;
@@ -1324,7 +1346,7 @@ bool ThinStructureReconstructor::ComputeExtentsFromCroppedSubimages(const Trunca
 	truncated_cone_extents->pb = Vector3d((1.0 - alpha_b) * truncated_cone.pa.ToEigenVector() + alpha_b * truncated_cone.pb.ToEigenVector());
 	truncated_cone_extents->ra = (1.0 - alpha_a) * truncated_cone.ra + alpha_a * truncated_cone.rb;
 	truncated_cone_extents->rb = (1.0 - alpha_b) * truncated_cone.ra + alpha_b * truncated_cone.rb;
-	return truncated_cone_extents;
+	return true;
 }
 
 void ThinStructureReconstructor::ComputeCroppedSubimageTruncatedConesExtents() {
@@ -1345,4 +1367,53 @@ void ThinStructureReconstructor::ComputeCroppedSubimageTruncatedConesExtents() {
 void ThinStructureReconstructor::LoadTruncatedConesWithRadiiOffsetsExtents() {
 	cout << "Loading truncated cones with radii, offsets and extents" << endl;
 	truncated_cone_hypotheses_with_radii_offsets_extents_ = ImportTruncatedConePrimitives("truncated_cone_hypotheses_with_radii_offsets_extents.dat");
+}
+
+void ThinStructureReconstructor::ComputeCroppedSubimageTruncatedConesWithOffsetsExtents() {
+	vector<pair<double, double> > radii_initials;
+	radii_initials.push_back(make_pair(0.1, 0.1));
+	radii_initials.push_back(make_pair(0.2, 0.2));
+
+	clock_t start = clock();
+	cout << "Computing radii, offsets and extents of truncated cones" << endl;
+	truncated_cone_hypotheses_with_radii_offsets_extents_.clear();
+	for (int cylinder_index = 0; cylinder_index < extended_cylinder_hypotheses_.size(); ++cylinder_index) {
+		TruncatedConePrimitive best_truncated_cone_extent;
+		double best_truncated_cone_length = 0.0;
+		for (int initial_index = 0; initial_index < radii_initials.size(); ++initial_index) {
+			const CylinderPrimitive& cylinder = extended_cylinder_hypotheses_[cylinder_index];
+			TruncatedConePrimitive truncated_cone(cylinder);
+			truncated_cone.ra = radii_initials[initial_index].first;
+			truncated_cone.rb = radii_initials[initial_index].second;
+			const TruncatedConePrimitive original_truncated_cone = truncated_cone;
+			TruncatedConePrimitive current_neighbor_truncated_cone;
+			double current_sum_edge_response;
+			int iteration_times = 1;
+			cout << "iteration #" << iteration_times << endl;
+			while (FindBestNeighborRadiiOffsetsMultiThreading(truncated_cone, original_truncated_cone, &current_neighbor_truncated_cone, &current_sum_edge_response)) {
+				truncated_cone = current_neighbor_truncated_cone;
+				iteration_times ++;
+				cout << "iteration #" << iteration_times << endl;
+			}	
+			cout << "Adjusted radius (buttom): " << truncated_cone.ra << " radius (top): " << truncated_cone.rb << endl;
+			//cout << "Adjusted sum edge response: " << current_sum_edge_response << endl;
+			TruncatedConePrimitive truncated_cone_extent;
+			if (ComputeExtentsFromCroppedSubimages(truncated_cone, &truncated_cone_extent)) {
+				cout << "Adjusted length: " << truncated_cone_extent.GetLength() << endl;
+				if (truncated_cone_extent.GetLength() > best_truncated_cone_length) {
+					best_truncated_cone_extent = truncated_cone_extent;
+					best_truncated_cone_length = truncated_cone_extent.GetLength();
+				}
+			}
+		}
+		truncated_cone_hypotheses_with_radii_offsets_extents_.push_back(best_truncated_cone_extent);
+		cout << "Best radius (buttom): " << best_truncated_cone_extent.ra << " radius (top): " << best_truncated_cone_extent.rb << endl;
+		cout << "Best length: " << best_truncated_cone_length << endl;
+		//cout << "Best sum edge response: " << best_sum_edge_response << endl;
+	}
+	double duration = (clock() - start) / (double) CLOCKS_PER_SEC;
+	cout << "Time spent in computing radii, offsets and extents of truncated cones: " << duration << "s" << endl;
+	ExportTruncatedConePrimitives(truncated_cone_hypotheses_with_radii_offsets_extents_, "truncated_cone_hypotheses_with_radii_offsets_extents.dat");
+	ExportTruncatedConeMeshes(truncated_cone_hypotheses_with_radii_offsets_extents_, "truncated_cone_hypotheses_with_radii_offsets_extents.obj");
+	ExportCroppedSubimagesWithMarkedTruncatedCones(truncated_cone_hypotheses_with_radii_offsets_extents_, "_marked_truncated_cones_with_radii_offsets_extents");
 }
