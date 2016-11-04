@@ -593,6 +593,17 @@ void ThinStructureReconstructor::ExportCroppedSubimagesWithMarkedHypotheses() {
 	}
 }
 
+void ThinStructureReconstructor::ExportCroppedSubimagesWithMarkedTruncatedCone(const TruncatedConePrimitive& truncated_cone, const string& file_name) {
+	cout << "About to export " << cropped_image_cameras_.size() << " images." << endl;
+	for (int index = 0; index < cropped_image_cameras_.size(); ++index) {
+		cout << "Exporting image #" << index << endl;
+		const ImageCamera& image_camera = cropped_image_cameras_[index];
+		cv::Mat subimage = cropped_subimages_[index].clone();
+		MarkSubimageWithTruncatedConeSurfaceAxisOutline(image_camera.subimage, image_camera.camera_model, truncated_cone, &subimage);
+		cv::imwrite(export_directory_ + NumberToString(index) + file_name, subimage);
+	}
+}
+
 void ThinStructureReconstructor::MarkSubimageWithEcefPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& ecef_point, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage) {
 	const Vector2d projected_pixel = camera_model.ProjectEcef(ecef_point);
 	MarkSubimagePixel(rasterized_subimage, projected_pixel, color, radius_in_pixel, subimage);
@@ -776,8 +787,8 @@ cv::Mat ThinStructureReconstructor::ComputeVerticalEdgeMap(const cv::Mat& subima
 	cv::Mat normalized_grad_x, normalized_grad_y;
 	cv::normalize(abs_grad_x, normalized_grad_x, 0.0, 1.0, cv::NORM_MINMAX);
 	cv::normalize(abs_grad_y, normalized_grad_y, 0.0, 1.0, cv::NORM_MINMAX);
-	cv::imwrite(export_directory_ + NumberToString(index) + "_normalized_grad_x.png", normalized_grad_x * 255.0);
-	cv::imwrite(export_directory_ + NumberToString(index) + "_normalized_grad_y.png", normalized_grad_y * 255.0);
+	//cv::imwrite(export_directory_ + NumberToString(index) + "_normalized_grad_x.png", normalized_grad_x * 255.0);
+	//cv::imwrite(export_directory_ + NumberToString(index) + "_normalized_grad_y.png", normalized_grad_y * 255.0);
 
 	cv::Mat raw_vertical_edge_response = cv::max(abs_grad_x - abs_grad_y, 0.0);
 	cv::Mat vertical_edge_response;
@@ -1026,7 +1037,7 @@ void ThinStructureReconstructor::ComputeCroppedSubimageVerticalEdgeMaps() {
 	for (int index = 0; index < cropped_image_cameras_.size(); ++index) {
 		const cv::Mat& subimage = cropped_subimages_[index];
 		const cv::Mat vertical_edge_response = ComputeVerticalEdgeMap(subimage, index);
-		cv::imwrite(export_directory_ + NumberToString(index) + "_vertical_edge_response.png", vertical_edge_response * 255.0);
+		//cv::imwrite(export_directory_ + NumberToString(index) + "_vertical_edge_response.png", vertical_edge_response * 255.0);
 		cropped_edge_maps_.push_back(vertical_edge_response);
 	}
 }
@@ -1394,7 +1405,9 @@ void ThinStructureReconstructor::ComputeCroppedSubimageTruncatedConesWithOffsets
 				truncated_cone = current_neighbor_truncated_cone;
 				iteration_times ++;
 				cout << "iteration #" << iteration_times << endl;
-			}	
+			}
+			cout << "Adjusted end point A: " << truncated_cone.pa.x << " " << truncated_cone.pa.y << " " << truncated_cone.pa.z << endl;
+			cout << "Adjusted end point B: " << truncated_cone.pb.x << " " << truncated_cone.pb.y << " " << truncated_cone.pb.z << endl;
 			cout << "Adjusted radius (buttom): " << truncated_cone.ra << " radius (top): " << truncated_cone.rb << endl;
 			//cout << "Adjusted sum edge response: " << current_sum_edge_response << endl;
 			TruncatedConePrimitive truncated_cone_extent;
@@ -1406,7 +1419,9 @@ void ThinStructureReconstructor::ComputeCroppedSubimageTruncatedConesWithOffsets
 				}
 			}
 		}
-		truncated_cone_hypotheses_with_radii_offsets_extents_.push_back(best_truncated_cone_extent);
+		if (best_truncated_cone_length > 0.0) {
+			truncated_cone_hypotheses_with_radii_offsets_extents_.push_back(best_truncated_cone_extent);
+		}
 		cout << "Best radius (buttom): " << best_truncated_cone_extent.ra << " radius (top): " << best_truncated_cone_extent.rb << endl;
 		cout << "Best length: " << best_truncated_cone_length << endl;
 		//cout << "Best sum edge response: " << best_sum_edge_response << endl;
@@ -1416,4 +1431,26 @@ void ThinStructureReconstructor::ComputeCroppedSubimageTruncatedConesWithOffsets
 	ExportTruncatedConePrimitives(truncated_cone_hypotheses_with_radii_offsets_extents_, "truncated_cone_hypotheses_with_radii_offsets_extents.dat");
 	ExportTruncatedConeMeshes(truncated_cone_hypotheses_with_radii_offsets_extents_, "truncated_cone_hypotheses_with_radii_offsets_extents.obj");
 	ExportCroppedSubimagesWithMarkedTruncatedCones(truncated_cone_hypotheses_with_radii_offsets_extents_, "_marked_truncated_cones_with_radii_offsets_extents");
+}
+
+void ThinStructureReconstructor::ExportTruncatdConesMeshesWithRadiiOffsetsExtents() {
+	ExportTruncatedConeMeshes(truncated_cone_hypotheses_with_radii_offsets_extents_, "truncated_cone_hypotheses_with_radii_offsets_extents.obj");
+}
+
+void ThinStructureReconstructor::ExportRawSubimagesWithMarkedTruncatedConesWithRadiiOffsetsExtents() {
+	ExportRawSubimagesWithMarkedTruncatedCones(truncated_cone_hypotheses_with_radii_offsets_extents_, "_marked_truncated_cones_with_radii_offsets_extents");
+}
+
+void ThinStructureReconstructor::ExportRawSubimagesWithMarkedTruncatedCones(const vector<TruncatedConePrimitive>& truncated_cones, const string& file_name) {
+	for (int index = 0; index < dataset_.image_cameras.size(); ++index) {
+		cout << "Loading raw subimage #" << index << endl;
+		const ImageCamera& image_camera = dataset_.image_cameras[index];
+		cv::Mat subimage = cv::imread(image_camera.subimage.file_path, CV_LOAD_IMAGE_COLOR);
+		cout << "Exporting raw subimage #" << index << endl;
+		for (int truncated_cone_index = 0; truncated_cone_index < truncated_cones.size(); ++truncated_cone_index) {
+			const TruncatedConePrimitive& truncated_cone = truncated_cones[truncated_cone_index];
+			MarkSubimageWithTruncatedConeSurfaceAxisOutline(image_camera.subimage, image_camera.camera_model, truncated_cone, &subimage);
+		}
+		cv::imwrite(export_directory_ + NumberToString(index) + file_name + ".png", subimage);
+	}
 }

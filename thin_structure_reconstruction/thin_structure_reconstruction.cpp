@@ -87,13 +87,31 @@ int main(int argc, char** argv) {
 
 	//reconstructor.ExportCroppedSubimagesWithMarkedEcefPoint(feature_point);
 
+	//{
+	//	TruncatedConePrimitive test_truncated_cone;
+	//	test_truncated_cone.pa = Vector3d(1.121, 9.049, -30.978);
+	//	test_truncated_cone.pb = Vector3d(1.171, 8.929, 1.795);
+	//	test_truncated_cone.ra = 0.06;
+	//	test_truncated_cone.rb = 0.09;
+	//	reconstructor.ExportCroppedSubimagesWithMarkedTruncatedCone(test_truncated_cone, "_marked_test_truncated_cone.png");
+	//}
+
+	//{
+	//	TruncatedConePrimitive test_truncated_cone;
+	//	test_truncated_cone.pa = Vector3d(1.171, 8.849, -30.978);
+	//	test_truncated_cone.pb = Vector3d(1.241, 9.139, 1.795);
+	//	test_truncated_cone.ra = 0.09;
+	//	test_truncated_cone.rb = 0.28;
+	//	reconstructor.ExportCroppedSubimagesWithMarkedTruncatedCone(test_truncated_cone, "_marked_test_truncated_cone2.png");
+	//}
+
 	reconstructor.ExportCroppedSubimagesWithMarkedHypotheses();
 
 	result = time(NULL);
 	cout << "Time: " << asctime(localtime(&result)) << endl;
 
 	reconstructor.ComputeCroppedSubimageVerticalEdgeMaps();
-
+	
 	result = time(NULL);
 	cout << "Time: " << asctime(localtime(&result)) << endl;
 

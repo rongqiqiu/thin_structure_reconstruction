@@ -2,6 +2,35 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "thin_structure_reconstruction", "thin_structure_reconstruction\thin_structure_reconstruction.vcxproj", "{AAE99115-84D5-4D3B-851A-6D5EAB37F653}"
+	ProjectSection(ProjectDependencies) = postProject
+		{E015DFAE-EC83-4453-BAF4-4E739D922D80} = {E015DFAE-EC83-4453-BAF4-4E739D922D80}
+		{C49932E4-D040-45A7-930C-E5C86198710E} = {C49932E4-D040-45A7-930C-E5C86198710E}
+		{DC516AF2-2A2C-41F5-A890-9A54EE427F95} = {DC516AF2-2A2C-41F5-A890-9A54EE427F95}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "run_entire_dataset", "run_entire_dataset\run_entire_dataset.vcxproj", "{5EC30EC3-9134-4817-A3D4-82E2CD4084C4}"
+	ProjectSection(ProjectDependencies) = postProject
+		{DC516AF2-2A2C-41F5-A890-9A54EE427F95} = {DC516AF2-2A2C-41F5-A890-9A54EE427F95}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "parse_data", "parse_data\parse_data.vcxproj", "{C49932E4-D040-45A7-930C-E5C86198710E}"
+	ProjectSection(ProjectDependencies) = postProject
+		{DC516AF2-2A2C-41F5-A890-9A54EE427F95} = {DC516AF2-2A2C-41F5-A890-9A54EE427F95}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "basic_types", "basic_types\basic_types.vcxproj", "{DC516AF2-2A2C-41F5-A890-9A54EE427F95}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "thin_structure_reconstructor", "thin_structure_reconstructor\thin_structure_reconstructor.vcxproj", "{E015DFAE-EC83-4453-BAF4-4E739D922D80}"
+	ProjectSection(ProjectDependencies) = postProject
+		{DC516AF2-2A2C-41F5-A890-9A54EE427F95} = {DC516AF2-2A2C-41F5-A890-9A54EE427F95}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "collect_entire_dataset", "collect_entire_dataset\collect_entire_dataset.vcxproj", "{C7FBDF70-BFC1-4221-BB5F-1B674B1EF6C3}"
+	ProjectSection(ProjectDependencies) = postProject
+		{E015DFAE-EC83-4453-BAF4-4E739D922D80} = {E015DFAE-EC83-4453-BAF4-4E739D922D80}
+		{C49932E4-D040-45A7-930C-E5C86198710E} = {C49932E4-D040-45A7-930C-E5C86198710E}
+		{DC516AF2-2A2C-41F5-A890-9A54EE427F95} = {DC516AF2-2A2C-41F5-A890-9A54EE427F95}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -13,6 +42,26 @@ Global
 		{AAE99115-84D5-4D3B-851A-6D5EAB37F653}.Debug|Win32.Build.0 = Debug|Win32
 		{AAE99115-84D5-4D3B-851A-6D5EAB37F653}.Release|Win32.ActiveCfg = Release|Win32
 		{AAE99115-84D5-4D3B-851A-6D5EAB37F653}.Release|Win32.Build.0 = Release|Win32
+		{5EC30EC3-9134-4817-A3D4-82E2CD4084C4}.Debug|Win32.ActiveCfg = Debug|Win32
+		{5EC30EC3-9134-4817-A3D4-82E2CD4084C4}.Debug|Win32.Build.0 = Debug|Win32
+		{5EC30EC3-9134-4817-A3D4-82E2CD4084C4}.Release|Win32.ActiveCfg = Release|Win32
+		{5EC30EC3-9134-4817-A3D4-82E2CD4084C4}.Release|Win32.Build.0 = Release|Win32
+		{C49932E4-D040-45A7-930C-E5C86198710E}.Debug|Win32.ActiveCfg = Debug|Win32
+		{C49932E4-D040-45A7-930C-E5C86198710E}.Debug|Win32.Build.0 = Debug|Win32
+		{C49932E4-D040-45A7-930C-E5C86198710E}.Release|Win32.ActiveCfg = Release|Win32
+		{C49932E4-D040-45A7-930C-E5C86198710E}.Release|Win32.Build.0 = Release|Win32
+		{DC516AF2-2A2C-41F5-A890-9A54EE427F95}.Debug|Win32.ActiveCfg = Debug|Win32
+		{DC516AF2-2A2C-41F5-A890-9A54EE427F95}.Debug|Win32.Build.0 = Debug|Win32
+		{DC516AF2-2A2C-41F5-A890-9A54EE427F95}.Release|Win32.ActiveCfg = Release|Win32
+		{DC516AF2-2A2C-41F5-A890-9A54EE427F95}.Release|Win32.Build.0 = Release|Win32
+		{E015DFAE-EC83-4453-BAF4-4E739D922D80}.Debug|Win32.ActiveCfg = Debug|Win32
+		{E015DFAE-EC83-4453-BAF4-4E739D922D80}.Debug|Win32.Build.0 = Debug|Win32
+		{E015DFAE-EC83-4453-BAF4-4E739D922D80}.Release|Win32.ActiveCfg = Release|Win32
+		{E015DFAE-EC83-4453-BAF4-4E739D922D80}.Release|Win32.Build.0 = Release|Win32
+		{C7FBDF70-BFC1-4221-BB5F-1B674B1EF6C3}.Debug|Win32.ActiveCfg = Debug|Win32
+		{C7FBDF70-BFC1-4221-BB5F-1B674B1EF6C3}.Debug|Win32.Build.0 = Debug|Win32
+		{C7FBDF70-BFC1-4221-BB5F-1B674B1EF6C3}.Release|Win32.ActiveCfg = Release|Win32
+		{C7FBDF70-BFC1-4221-BB5F-1B674B1EF6C3}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

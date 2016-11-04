@@ -201,8 +201,8 @@ Dataset DataParser::ParseDataset(const stereo_export::DatasetMetadata& dataset_m
 	double utm_x, utm_y;
 	string utm_zone;
 	LatLngToUTM(dataset_metadata.latitude_degrees(), dataset_metadata.longitude_degrees(), &utm_x, &utm_y, &utm_zone);
-	cout << "utm_x = " << setprecision(2) << fixed << utm_x << endl;
-	cout << "utm_y = " << setprecision(2) << fixed << utm_y << endl;
+	cout << "utm_x = " << setprecision(8) << fixed << utm_x << endl;
+	cout << "utm_y = " << setprecision(8) << fixed << utm_y << endl;
 	cout << "utm_zone = " << utm_zone << endl;
 	Dataset dataset;
 	UTMBox utm_box_raw = ComputeUTMBox(utm_x, utm_y, utm_zone, dataset_metadata.radius_meters());
@@ -215,7 +215,9 @@ Dataset DataParser::ParseDataset(const stereo_export::DatasetMetadata& dataset_m
 		dataset.utm_reference_point = Vector3d(utm_x, utm_y, 0.0);
 	}
 	dataset.utm_box = utm_box_user;
-	dataset.stereo_rasters = ParseStereoRasters(dataset_metadata.stereo_raster(), utm_box_user, &(dataset.points_utm), utm_box_raw, raw_utm_file_name, raw_ecef_file_name, user_utm_file_name, user_ecef_file_name);
+	if (parse_stereo_rasters_) {
+		dataset.stereo_rasters = ParseStereoRasters(dataset_metadata.stereo_raster(), utm_box_user, &(dataset.points_utm), utm_box_raw, raw_utm_file_name, raw_ecef_file_name, user_utm_file_name, user_ecef_file_name);
+	}
 	dataset.image_cameras = ParseImageCameras(dataset_metadata.image_camera());
 	return dataset;
 }

@@ -75,6 +75,9 @@ public:
 	void ComputeCroppedSubimageTruncatedConesExtents();
 	void LoadTruncatedConesWithRadiiOffsetsExtents();
 	void ComputeCroppedSubimageTruncatedConesWithOffsetsExtents();
+	void ExportTruncatdConesMeshesWithRadiiOffsetsExtents();
+	void ExportRawSubimagesWithMarkedTruncatedConesWithRadiiOffsetsExtents();
+	void ExportCroppedSubimagesWithMarkedTruncatedCone(const TruncatedConePrimitive& truncated_cone, const string& file_name);
 private:
 	string export_directory_;
 	Dataset dataset_;
@@ -141,6 +144,7 @@ private:
 	bool FindBestNeighborRadiiOffsets(const TruncatedConePrimitive& truncated_cone, const TruncatedConePrimitive& original_truncated_cone, TruncatedConePrimitive* best_neighbor_truncated_cone);
 	bool FindBestNeighborRadiiOffsetsMultiThreading(const TruncatedConePrimitive& truncated_cone, const TruncatedConePrimitive& original_truncated_cone, TruncatedConePrimitive* best_neighbor_truncated_cone, double* best_sum_edge_response);
 	bool ComputeExtentsFromCroppedSubimages(const TruncatedConePrimitive& truncated_cone, TruncatedConePrimitive* truncated_cone_extents);
+	void ExportRawSubimagesWithMarkedTruncatedCones(const vector<TruncatedConePrimitive>& truncated_cones, const string& file_name);
 public:
 	friend void ThreadHelperFunc(ThinStructureReconstructor* thin_structure_reconstructor, TruncatedConePrimitive* truncated_cone, double* result);
 };

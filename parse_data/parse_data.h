@@ -21,7 +21,8 @@ class DataParser {
 public:
 	DataParser() 
 		: export_raw_points_(false), export_user_points_(false),
-		  import_user_points_(false), radius_(0.0), utm_reference_point_(-1.0, -1.0, -1.0) {}
+		  import_user_points_(false), parse_stereo_rasters_(true),
+		  radius_(0.0), utm_reference_point_(-1.0, -1.0, -1.0) {}
 	void SetRadius(double input_radius) {
 		radius_ = input_radius;
 	}
@@ -36,6 +37,9 @@ public:
 	}
 	void SetMetadataFileName(string metadata_file_name) {
 		metadata_file_name_ = metadata_file_name;
+	}
+	void SetParseStereoRasters(bool parse_stereo_rasters) {
+		parse_stereo_rasters_ = parse_stereo_rasters;
 	}
 	void SetExportRawPoints(bool export_raw_points) {
 		export_raw_points_ = export_raw_points;
@@ -59,6 +63,7 @@ private:
 	bool export_raw_points_;
 	bool export_user_points_;
 	bool import_user_points_;
+	bool parse_stereo_rasters_;
 	string root_directory_;
 	string export_directory_;
 	string metadata_file_name_;
