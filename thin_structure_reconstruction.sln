@@ -32,6 +32,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "collect_entire_dataset", "c
 		{DC516AF2-2A2C-41F5-A890-9A54EE427F95} = {DC516AF2-2A2C-41F5-A890-9A54EE427F95}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "evaluate_entire_dataset", "evaluate_entire_dataset\evaluate_entire_dataset.vcxproj", "{2D7DD8EE-32B0-444C-85AE-07FC3B5CFEC8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -62,6 +64,10 @@ Global
 		{C7FBDF70-BFC1-4221-BB5F-1B674B1EF6C3}.Debug|Win32.Build.0 = Debug|Win32
 		{C7FBDF70-BFC1-4221-BB5F-1B674B1EF6C3}.Release|Win32.ActiveCfg = Release|Win32
 		{C7FBDF70-BFC1-4221-BB5F-1B674B1EF6C3}.Release|Win32.Build.0 = Release|Win32
+		{2D7DD8EE-32B0-444C-85AE-07FC3B5CFEC8}.Debug|Win32.ActiveCfg = Debug|Win32
+		{2D7DD8EE-32B0-444C-85AE-07FC3B5CFEC8}.Debug|Win32.Build.0 = Debug|Win32
+		{2D7DD8EE-32B0-444C-85AE-07FC3B5CFEC8}.Release|Win32.ActiveCfg = Release|Win32
+		{2D7DD8EE-32B0-444C-85AE-07FC3B5CFEC8}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
