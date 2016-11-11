@@ -185,6 +185,25 @@ struct Dataset {
 	vector<Vector3d> points_utm;
 };
 
+struct CylinderPrimitive {
+	Vector3d pa, pb;
+	double r;
+	double GetLength() {
+		return (pa.ToEigenVector() - pb.ToEigenVector()).norm();
+	}
+};
+
+struct TruncatedConePrimitive {
+	Vector3d pa, pb; // pa: center of bottom end; pb: center of top end
+	double ra, rb; // ra: radius of bottom end; rb: center of top end
+	TruncatedConePrimitive() {}
+	TruncatedConePrimitive(const CylinderPrimitive& cylinder)
+		: pa(cylinder.pa), pb(cylinder.pb), ra(cylinder.r), rb(cylinder.r) {}
+	double GetLength() {
+		return (pa.ToEigenVector() - pb.ToEigenVector()).norm();
+	}
+};
+
 pcl::PointXYZ Vector3dToPointXYZ(const Vector3d& input_point, const Vector3d& reference_point);
 pcl::PointCloud<pcl::PointXYZ> VectorVector3dToPointCloud(const vector<Vector3d>& input_vector, const Vector3d& reference_point);
 

@@ -33,8 +33,16 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "collect_entire_dataset", "c
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "evaluate_entire_dataset", "evaluate_entire_dataset\evaluate_entire_dataset.vcxproj", "{2D7DD8EE-32B0-444C-85AE-07FC3B5CFEC8}"
+	ProjectSection(ProjectDependencies) = postProject
+		{DC516AF2-2A2C-41F5-A890-9A54EE427F95} = {DC516AF2-2A2C-41F5-A890-9A54EE427F95}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "visualize_ground_truth_entire_dataset", "visualize_ground_truth_entire_dataset\visualize_ground_truth_entire_dataset.vcxproj", "{76A840A9-5EAF-4C20-B5E5-368CD721027C}"
+	ProjectSection(ProjectDependencies) = postProject
+		{E015DFAE-EC83-4453-BAF4-4E739D922D80} = {E015DFAE-EC83-4453-BAF4-4E739D922D80}
+		{C49932E4-D040-45A7-930C-E5C86198710E} = {C49932E4-D040-45A7-930C-E5C86198710E}
+		{DC516AF2-2A2C-41F5-A890-9A54EE427F95} = {DC516AF2-2A2C-41F5-A890-9A54EE427F95}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

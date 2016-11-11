@@ -7,25 +7,6 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
-struct CylinderPrimitive {
-	Vector3d pa, pb;
-	double r;
-	double GetLength() {
-		return (pa.ToEigenVector() - pb.ToEigenVector()).norm();
-	}
-};
-
-struct TruncatedConePrimitive {
-	Vector3d pa, pb; // pa: center of bottom end; pb: center of top end
-	double ra, rb; // ra: radius of bottom end; rb: center of top end
-	TruncatedConePrimitive() {}
-	TruncatedConePrimitive(const CylinderPrimitive& cylinder)
-		: pa(cylinder.pa), pb(cylinder.pb), ra(cylinder.r), rb(cylinder.r) {}
-	double GetLength() {
-		return (pa.ToEigenVector() - pb.ToEigenVector()).norm();
-	}
-};
-
 class ThinStructureReconstructor {
 public:
 	ThinStructureReconstructor() {}
