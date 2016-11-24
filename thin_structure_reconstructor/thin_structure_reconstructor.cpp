@@ -24,8 +24,6 @@
 #include <iostream>
 #include <time.h>
 
-const double PI = acos(-1.0);
-
 void ThinStructureReconstructor::ParseDataset() {
 	reference_point_ = dataset_.utm_reference_point;
 	point_cloud_ = VectorVector3dToPointCloud(dataset_.points_utm, reference_point_);
@@ -121,6 +119,63 @@ void ThinStructureReconstructor::ExportTruncatedConeMeshes(const vector<Truncate
 	out_stream.close();
 }
 
+void ThinStructureReconstructor::ExportPoleWithLampPrimitives(const vector<PoleWithLamp>& pole_with_lamps, const string& file_name) {
+	ofstream out_stream;
+	out_stream.open(export_directory_ + file_name);
+	for (int index = 0; index < pole_with_lamps.size(); ++index) {
+		const PoleWithLamp& pole_with_lamp = pole_with_lamps[index];
+		const TruncatedConePrimitive& truncated_cone = pole_with_lamp.truncated_cone;
+		out_stream << setprecision(8) << fixed << truncated_cone.pa.x << " " << truncated_cone.pa.y << " " << truncated_cone.pa.z << " ";
+		out_stream << setprecision(8) << fixed << truncated_cone.pb.x << " " << truncated_cone.pb.y << " " << truncated_cone.pb.z << " ";
+		out_stream << setprecision(8) << fixed << truncated_cone.ra << " " << truncated_cone.rb << " ";
+		if (pole_with_lamp.has_lamp) {
+			out_stream << "1 ";
+			out_stream << setprecision(8) << fixed << pole_with_lamp.end_point.x << " " << pole_with_lamp.end_point.y << " " << pole_with_lamp.end_point.z << endl;
+		} else {
+			out_stream << "0" << endl;
+		}
+	}
+	out_stream.close();
+}
+
+void ThinStructureReconstructor::ExportPoleWithLampMeshes(const vector<PoleWithLamp>& pole_with_lamps, const string& file_name) {
+	ofstream out_stream;
+	out_stream.open(export_directory_ + file_name);
+	int vertex_count = 0;
+	for (int index = 0; index < pole_with_lamps.size(); ++index) {
+		for (int pass = 0; pass <= 1; ++pass) {
+			TruncatedConePrimitive truncated_cone;
+			if (pass == 0) {
+				truncated_cone = pole_with_lamps[index].truncated_cone;
+			} else {
+				if (!pole_with_lamps[index].has_lamp) {
+					continue;
+				}
+				truncated_cone = pole_with_lamps[index].GetArmTruncatedCone();
+			}
+			const Eigen::Vector3d dir_z = (truncated_cone.pb.ToEigenVector() - truncated_cone.pa.ToEigenVector()).normalized();
+			const Eigen::Vector3d dir_x = Eigen::Vector3d(1.0, 0.0, 0.0).cross(dir_z).normalized();
+			const Eigen::Vector3d dir_y = dir_z.cross(dir_x).normalized();
+			for (int subdivision_index = 0; subdivision_index < 16; ++subdivision_index) {
+				const double angle = subdivision_index * PI * 2.0 / 16;
+				const Eigen::Vector3d vertex = truncated_cone.pa.ToEigenVector() + dir_x * truncated_cone.ra * cos(angle) + dir_y * truncated_cone.ra * sin(angle);
+				out_stream << setprecision(8) << fixed << "v " << vertex.x() << " " << vertex.y() << " " << vertex.z() << endl;
+			}
+			for (int subdivision_index = 0; subdivision_index < 16; ++subdivision_index) {
+				const double angle = subdivision_index * PI * 2.0 / 16;
+				const Eigen::Vector3d vertex = truncated_cone.pb.ToEigenVector() + dir_x * truncated_cone.rb * cos(angle) + dir_y * truncated_cone.rb * sin(angle);
+				out_stream << setprecision(8) << fixed << "v " << vertex.x() << " " << vertex.y() << " " << vertex.z() << endl;
+			}
+			for (int subdivision_index = 0; subdivision_index < 16; ++subdivision_index) {
+				out_stream << "f " << vertex_count + subdivision_index + 1 << " " << vertex_count + (subdivision_index + 1) % 16 + 1 << " " << vertex_count + subdivision_index + 16 + 1 << endl;
+				out_stream << "f " << vertex_count + (subdivision_index + 1) % 16 + 1 << " " << vertex_count + (subdivision_index + 1) % 16 + 16 + 1 << " " << vertex_count + subdivision_index + 16 + 1 << endl;
+			}
+			vertex_count += 16 * 2;
+		}
+	}
+	out_stream.close();
+}
+
 vector<CylinderPrimitive> ThinStructureReconstructor::ImportCylinderPrimitives(const string& file_name) {
 	vector<CylinderPrimitive> cylinders;
 	ifstream in_stream;
@@ -151,6 +206,32 @@ vector<TruncatedConePrimitive> ThinStructureReconstructor::ImportTruncatedConePr
 	}
 	in_stream.close();
 	return truncated_cones;
+}
+
+vector<PoleWithLamp> ThinStructureReconstructor::ImportPoleWithLampPrimitives(const string& file_name) {
+	vector<PoleWithLamp> pole_with_lamps;
+	ifstream in_stream;
+	in_stream.open(export_directory_ + file_name);
+	string line;
+	while (getline(in_stream, line)) {
+		PoleWithLamp pole_with_lamp;
+		TruncatedConePrimitive& truncated_cone = pole_with_lamp.truncated_cone;
+		istringstream iss(line);
+		iss >> truncated_cone.pa.x >> truncated_cone.pa.y >> truncated_cone.pa.z;
+		iss >> truncated_cone.pb.x >> truncated_cone.pb.y >> truncated_cone.pb.z;
+		iss >> truncated_cone.ra >> truncated_cone.rb;
+		int has_lamp;
+		iss >> has_lamp;
+		if (has_lamp) {
+			pole_with_lamp.has_lamp = true;
+			iss >> pole_with_lamp.end_point.x >> pole_with_lamp.end_point.y >> pole_with_lamp.end_point.z;
+		} else {
+			pole_with_lamp.has_lamp = false;
+		}
+		pole_with_lamps.push_back(pole_with_lamp);
+	}
+	in_stream.close();
+	return pole_with_lamps;
 }
 
 pcl::PointCloud<pcl::PointXYZ> ThinStructureReconstructor::ImportPointCloud(const string& file_name) {
@@ -220,6 +301,7 @@ Vector3d ThinStructureReconstructor::ComputePCAValue(const vector<int>& pointIdx
 }
 
 void ThinStructureReconstructor::ApplyRandomSubsampling(const double& sampling_ratio) {
+	point_cloud_subsampled_.clear();
 	for (int index = 0; index < point_cloud_.points.size(); ++index) {
 		double random_number = ((double) rand()) / RAND_MAX;
 		if (random_number < sampling_ratio) {
@@ -245,10 +327,17 @@ void ThinStructureReconstructor::ComputePCAValues() {
 			cout << "Computing " << index << " out of " << point_cloud_.points.size() << endl;
 		}
 		const pcl::PointXYZ& point = point_cloud_.points[index];
-		vector<int> pointIdx;
-		vector<float> pointSquaredDistance;
-		kdtree.radiusSearch(point, 1.0, pointIdx, pointSquaredDistance);
-		pca_values_.push_back(ComputePCAValue(pointIdx));
+		//cout << dataset_.utm_box.bbox.min_bounds.x << " " << dataset_.utm_box.bbox.min_bounds.y << " - ";
+		//cout << dataset_.utm_box.bbox.max_bounds.x << " " << dataset_.utm_box.bbox.max_bounds.y << " : ";
+		//cout << point.x << " " << point.y << endl;
+		if (!dataset_.utm_box.Contains(point.x, point.y, dataset_.utm_box.utm_zone)) {
+			pca_values_.push_back(Vector3d(0.0, 0.0, 0.0));
+		} else {
+			vector<int> pointIdx;
+			vector<float> pointSquaredDistance;
+			kdtree.radiusSearch(point, 1.0, pointIdx, pointSquaredDistance);
+			pca_values_.push_back(ComputePCAValue(pointIdx));
+		}
 	}
 	if (pca_values_.size() != point_cloud_.points.size()) {
 		cout << "PCA values size (" << pca_values_.size() << ") does not match with point cloud size (" << point_cloud_.points.size() << ")" << endl;
@@ -299,24 +388,122 @@ bool ThinStructureReconstructor::IsVerticalLinear(const Vector3d& pca_value, con
 	return pca_value.x < threshold && pca_value.y < threshold && pca_value.z >= 1.0 - 1e-3;
 }
 
-void ThinStructureReconstructor::ComputeFilteredPoints() {
-	index_filtered_.clear();
-	point_cloud_filtered_.clear();
-	cout << "Computing filtered points" << endl;
+void ThinStructureReconstructor::ComputePCAFilteredPoints() {
+	point_cloud_pca_filtered_.clear();
+	cout << "Computing PCA filtered points" << endl;
 	for (int index = 0; index < point_cloud_.points.size(); ++index) {
-		if (IsVerticalLinear(pca_values_[index], 0.6)) {
-			index_filtered_.push_back(index);
-			point_cloud_filtered_.points.push_back(point_cloud_.points[index]);
+		if (IsVerticalLinear(pca_values_[index], 0.7)) {
+			point_cloud_pca_filtered_.points.push_back(point_cloud_.points[index]);
 		}
 	}
-	point_cloud_filtered_.width = point_cloud_filtered_.points.size();
-	point_cloud_filtered_.height = 1;
-	ExportPointCloud(point_cloud_filtered_, "filtered.xyz");
+	point_cloud_pca_filtered_.width = point_cloud_pca_filtered_.points.size();
+	point_cloud_pca_filtered_.height = 1;
+	ExportPointCloud(point_cloud_pca_filtered_, "pca_filtered.xyz");
+	point_cloud_filtered_ = point_cloud_pca_filtered_;
 }
 
-void ThinStructureReconstructor::LoadFilteredPoints() {
-	cout << "Loading filtered points" << endl;
-	point_cloud_filtered_ = ImportPointCloud("filtered.xyz");
+void ThinStructureReconstructor::LoadPCAFilteredPoints() {
+	cout << "Loading PCA filtered points" << endl;
+	point_cloud_pca_filtered_ = ImportPointCloud("pca_filtered.xyz");
+	point_cloud_filtered_ = point_cloud_pca_filtered_;
+}
+
+void ThinStructureReconstructor::ComputeEmptinessValues() {
+	emptiness_values_.clear();
+	cout << "Computing emptiness values" << endl;
+	ApplyRandomSubsampling(1.0);
+	//ApplyRandomSubsampling(0.2);
+	pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
+	kdtree.setInputCloud(point_cloud_subsampled_.makeShared());
+	cout << "Kd-tree is set up" << endl;
+	for (int index = 0; index < point_cloud_pca_filtered_.points.size(); ++index) {
+		if (index % 100 == 0) {
+			cout << "Computing " << index << " out of " << point_cloud_pca_filtered_.points.size() << endl;
+		}
+		const pcl::PointXYZ& point = point_cloud_pca_filtered_.points[index];
+		vector<int> pointIdxSmall;
+		vector<float> pointSquaredDistanceSmall;
+		kdtree.radiusSearch(point, 1.0, pointIdxSmall, pointSquaredDistanceSmall);
+		int pointNumSmall = 0;
+		for (int idx = 0; idx < pointIdxSmall.size(); ++idx) {
+			if (fabs(point_cloud_subsampled_.points[pointIdxSmall[idx]].z - point.z) <= 0.5) {
+				++pointNumSmall;
+			}
+		}
+		vector<int> pointIdxLarge;
+		vector<float> pointSquaredDistanceLarge;
+		kdtree.radiusSearch(point, 2.0, pointIdxLarge, pointSquaredDistanceLarge);
+		int pointNumLarge = 0;
+		for (int idx = 0; idx < pointIdxLarge.size(); ++idx) {
+			if (fabs(point_cloud_subsampled_.points[pointIdxLarge[idx]].z - point.z) <= 0.5) {
+				++pointNumLarge;
+			}
+		}
+		emptiness_values_.push_back(min((double) (pointNumLarge - pointNumSmall) / pointNumSmall, 10.0));
+	}
+	if (emptiness_values_.size() != point_cloud_pca_filtered_.points.size()) {
+		cout << "Emptiness values size (" << emptiness_values_.size() << ") does not match with PCA filtered point cloud size (" << point_cloud_pca_filtered_.points.size() << ")" << endl;
+		throw std::exception();
+	}
+	{
+		ofstream out_stream;
+		out_stream.open(export_directory_ + "emptiness.dat");
+		for (int index = 0; index < point_cloud_pca_filtered_.points.size(); ++index) {
+			const double& emptiness_value(emptiness_values_[index]);
+			out_stream << setprecision(8) << fixed << emptiness_value << endl;
+		}
+		out_stream.close();
+	}
+	{
+		ofstream out_stream;
+		out_stream.open(export_directory_ + "points_emptiness.xyz");
+		for (int index = 0; index < point_cloud_pca_filtered_.points.size(); ++index) {
+			const pcl::PointXYZ& point = point_cloud_pca_filtered_.points[index];
+			const double& emptiness_value(emptiness_values_[index]);
+			out_stream << setprecision(8) << fixed << point.x << " " << point.y << " " << point.z << " ";
+			out_stream << setprecision(8) << fixed << emptiness_value << endl;
+		}
+		out_stream.close();
+	}
+}
+
+void ThinStructureReconstructor::LoadEmptinessValues() {
+	emptiness_values_.clear();
+	cout << "Loading emptiness values" << endl;
+	ifstream in_stream;
+	in_stream.open(export_directory_ + "emptiness.dat");
+	double emptiness;
+	string line;
+	while (getline(in_stream, line)) {
+		istringstream iss(line);
+		iss >> emptiness;
+		emptiness_values_.push_back(emptiness);
+	}
+	in_stream.close();
+	if (emptiness_values_.size() != point_cloud_pca_filtered_.points.size()) {
+		cout << "Emptiness values size (" << emptiness_values_.size() << ") does not match with PCA filtered point cloud size (" << point_cloud_pca_filtered_.points.size() << ")" << endl;
+		throw std::exception();
+	}
+}
+
+void ThinStructureReconstructor::ComputeEmptinessFilteredPoints() {
+	point_cloud_emptiness_filtered_.clear();
+	cout << "Computing emptiness filtered points" << endl;
+	for (int index = 0; index < point_cloud_pca_filtered_.points.size(); ++index) {
+		if (emptiness_values_[index] < 0.5) {
+			point_cloud_emptiness_filtered_.points.push_back(point_cloud_pca_filtered_.points[index]);
+		}
+	}
+	point_cloud_emptiness_filtered_.width = point_cloud_emptiness_filtered_.points.size();
+	point_cloud_emptiness_filtered_.height = 1;
+	ExportPointCloud(point_cloud_emptiness_filtered_, "emptiness_filtered.xyz");
+	point_cloud_filtered_ = point_cloud_emptiness_filtered_;
+}
+
+void ThinStructureReconstructor::LoadEmptinessFilteredPoints() {
+	cout << "Loading emptiness filtered points" << endl;
+	point_cloud_emptiness_filtered_ = ImportPointCloud("emptiness_filtered.xyz");
+	point_cloud_filtered_ = point_cloud_emptiness_filtered_;
 }
 
 Vector3d ThinStructureReconstructor::ComputeXYCentroid(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const vector<int>& pointIdx) {
@@ -396,7 +583,7 @@ void ThinStructureReconstructor::ComputeRANSAC() {
 			}
 		}
 		cout << "Detection! Size: " << bestPointIdx.size() << endl;
-		if (bestPointIdx.size() < 600) {
+		if (bestPointIdx.size() < 400) {
 			break;
 		}
 		sort(bestPointIdx.begin(), bestPointIdx.end());
@@ -630,6 +817,13 @@ void ThinStructureReconstructor::MarkSubimageWithTruncatedConeSurfaceAxisOutline
 	MarkSubimageWithTruncatedConeOutline(rasterized_subimage, camera_model, truncated_cone, cv::Scalar(255, 0, 0), 1.0, subimage);
 }
 
+void ThinStructureReconstructor::MarkSubimageWithPoleWithLampSurfaceAxisOutline(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const PoleWithLamp& pole_with_lamp, cv::Mat* subimage) {
+	MarkSubimageWithTruncatedConeSurfaceAxisOutline(rasterized_subimage, camera_model, pole_with_lamp.truncated_cone, subimage);
+	if (pole_with_lamp.has_lamp) {
+		MarkSubimageWithTruncatedConeSurfaceAxisOutline(rasterized_subimage, camera_model, pole_with_lamp.GetArmTruncatedCone(), subimage);
+	}
+}
+
 void ThinStructureReconstructor::MarkSubimageWithCylinderSurface(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Scalar& color, cv::Mat* subimage) {
 	for (int sample_index = 0; sample_index <= 500; ++sample_index) {
 		const Eigen::Vector3d sample_axis = (500 - sample_index) * 1.0 / 500 * cylinder.pa.ToEigenVector()
@@ -803,7 +997,7 @@ double ThinStructureReconstructor::RetrieveSubimagePixelRounding(const Rasterize
 		const Vector2i shifted_pixel = integer_pixel.ToEigenVector() - rasterized_subimage.bounds.min_bounds.ToEigenVector();
 		return subimage.at<float>(shifted_pixel.y, shifted_pixel.x);
 	} else {
-		return 0.0;
+		return -1.0;
 	}
 }
 
@@ -832,7 +1026,7 @@ double ThinStructureReconstructor::RetrieveSubimagePixel(const RasterizedSubimag
 			 + intensity_10 * coeff_x * (1.0 - coeff_y)
 			 + intensity_11 * coeff_x * coeff_y;
 	} else {
-		return 0.0;
+		return -1.0;
 	}
 }
 
@@ -848,6 +1042,7 @@ double ThinStructureReconstructor::RetrieveSubimageWithShiftedUtmPoint(const Ras
 double ThinStructureReconstructor::ComputeCylinderEdgeResponse(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Mat& subimage) {
 	const double outline_angle = ComputeOutlineAngle(camera_model, cylinder);
 	double edge_response = 0.0;
+	int valid_point_num = 0;
 	for (int sample_index = 0; sample_index <= 500; ++sample_index) {
 		const Eigen::Vector3d sample_axis = (500 - sample_index) * 1.0 / 500 * cylinder.pa.ToEigenVector()
 			+ sample_index * 1.0 / 500 * cylinder.pb.ToEigenVector();
@@ -857,13 +1052,24 @@ double ThinStructureReconstructor::ComputeCylinderEdgeResponse(const RasterizedS
 		{
 			const double angle = outline_angle;
 			const Eigen::Vector3d vertex = sample_axis + dir_x * cylinder.r * cos(angle) + dir_y * cylinder.r * sin(angle);
-			edge_response += RetrieveSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(vertex), subimage);
+			const double edge_value = RetrieveSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(vertex), subimage);
+			if (edge_value >= 0.0) {
+				edge_response += edge_value;
+				++valid_point_num;
+			}
 		}
 		{
 			const double angle = outline_angle > PI ? outline_angle - PI : outline_angle + PI;
 			const Eigen::Vector3d vertex = sample_axis + dir_x * cylinder.r * cos(angle) + dir_y * cylinder.r * sin(angle);
-			edge_response += RetrieveSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(vertex), subimage);
+			const double edge_value = RetrieveSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(vertex), subimage);
+			if (edge_value >= 0.0) {
+				edge_response += edge_value;
+				++valid_point_num;
+			}
 		}
+	}
+	if (valid_point_num != 0) {
+		edge_response /= valid_point_num;
 	}
 	return edge_response;
 }
@@ -871,6 +1077,7 @@ double ThinStructureReconstructor::ComputeCylinderEdgeResponse(const RasterizedS
 double ThinStructureReconstructor::ComputeTruncatedConeEdgeResponse(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const TruncatedConePrimitive& truncated_cone, const cv::Mat& subimage) {
 	const double outline_angle = ComputeOutlineAngle(camera_model, truncated_cone);
 	double edge_response = 0.0;
+	int valid_point_num = 0;
 	for (int sample_index = 0; sample_index <= 500; ++sample_index) {
 		const Eigen::Vector3d sample_axis = (500 - sample_index) * 1.0 / 500 * truncated_cone.pa.ToEigenVector()
 			+ sample_index * 1.0 / 500 * truncated_cone.pb.ToEigenVector();
@@ -882,27 +1089,94 @@ double ThinStructureReconstructor::ComputeTruncatedConeEdgeResponse(const Raster
 		{
 			const double angle = outline_angle;
 			const Eigen::Vector3d vertex = sample_axis + dir_x * sample_radius * cos(angle) + dir_y * sample_radius * sin(angle);
-			edge_response += RetrieveSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(vertex), subimage);
+			const double edge_value = RetrieveSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(vertex), subimage);
+			if (edge_value >= 0.0) {
+				edge_response += edge_value;
+				++valid_point_num;
+			}
 		}
 		{
 			const double angle = outline_angle > PI ? outline_angle - PI : outline_angle + PI;
 			const Eigen::Vector3d vertex = sample_axis + dir_x * sample_radius * cos(angle) + dir_y * sample_radius * sin(angle);
-			edge_response += RetrieveSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(vertex), subimage);
+			const double edge_value = RetrieveSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(vertex), subimage);
+			if (edge_value >= 0.0) {
+				edge_response += edge_value;
+				++valid_point_num;
+			}
 		}
+	}
+	if (valid_point_num != 0) {
+		edge_response /= valid_point_num;
 	}
 	return edge_response;
 }
 
 double ThinStructureReconstructor::ComputeTruncatedConeSumEdgeResponse(const TruncatedConePrimitive& truncated_cone) {
-	double sum_edge_response = 0.0;
+	const double ratio = 0.5;
+	vector<double> edge_responses;
 	for (int index = 0; index < cropped_image_cameras_.size(); ++index) {
 		const ImageCamera& image_camera = cropped_image_cameras_[index];
 		const cv::Mat& vertical_edge_response = cropped_edge_maps_[index];
 
 		const double edge_response = ComputeTruncatedConeEdgeResponse(image_camera.subimage, image_camera.camera_model, truncated_cone, vertical_edge_response);
-		sum_edge_response += edge_response;
+		edge_responses.push_back(edge_response);
 	}
-	sum_edge_response /= cropped_image_cameras_.size();
+	sort(edge_responses.begin(), edge_responses.end());
+	reverse(edge_responses.begin(), edge_responses.end());
+	double sum_edge_response = 0.0;
+	int sum_images = 0;
+	for (int index = 0; index < cropped_image_cameras_.size(); ++index) {
+		if (((double)index / cropped_image_cameras_.size() < ratio) || (edge_responses[index] >= 0.01)) {
+			const double& edge_response = edge_responses[index];
+			sum_edge_response += edge_response;
+			++sum_images;
+		}
+	}
+	if (sum_images == 0) {
+		sum_edge_response = 0.0;
+	} else {
+		sum_edge_response /= sum_images;
+	}
+	return sum_edge_response;
+}
+
+double ThinStructureReconstructor::ComputeTruncatedConeSumEdgeResponse(const vector<TruncatedConePrimitive>& truncated_cone) {
+	double sum = 0.0;
+	for (int index = 0; index < truncated_cone.size(); ++index) {
+		sum += ComputeTruncatedConeSumEdgeResponse(truncated_cone[index]);
+	}
+	return sum;
+}
+
+double ThinStructureReconstructor::ComputeTruncatedConeSumEdgeResponseDebug(const TruncatedConePrimitive& truncated_cone) {
+	const double ratio = 0.5;
+	vector<double> edge_responses;
+	for (int index = 0; index < cropped_image_cameras_.size(); ++index) {
+		const ImageCamera& image_camera = cropped_image_cameras_[index];
+		const cv::Mat& vertical_edge_response = cropped_edge_maps_[index];
+
+		const double edge_response = ComputeTruncatedConeEdgeResponse(image_camera.subimage, image_camera.camera_model, truncated_cone, vertical_edge_response);
+		edge_responses.push_back(edge_response);
+	}
+	sort(edge_responses.begin(), edge_responses.end());
+	reverse(edge_responses.begin(), edge_responses.end());
+	for (int index = 0; index < edge_responses.size(); ++index) {
+		cout << "index: " << index << " edge response: " << edge_responses[index] << endl;
+	}
+	double sum_edge_response = 0.0;
+	int sum_images = 0;
+	for (int index = 0; index < cropped_image_cameras_.size(); ++index) {
+		if (((double)index / cropped_image_cameras_.size() < ratio) || (edge_responses[index] >= 0.01)) {
+			const double& edge_response = edge_responses[index];
+			sum_edge_response += edge_response;
+			++sum_images;
+		}
+	}
+	if (sum_images == 0) {
+		sum_edge_response = 0.0;
+	} else {
+		sum_edge_response /= sum_images;
+	}
 	return sum_edge_response;
 }
 
@@ -1153,6 +1427,20 @@ void ThinStructureReconstructor::ExportCroppedSubimagesWithMarkedTruncatedCones(
 	}
 }
 
+void ThinStructureReconstructor::ExportCroppedSubimagesWithMarkedPoleWithLamps(const vector<PoleWithLamp>& pole_with_lamps, const string& file_name) {
+	cout << "About to export " << cropped_image_cameras_.size() << " images." << endl;
+	for (int index = 0; index < cropped_image_cameras_.size(); ++index) {
+		cout << "Exporting image #" << index << endl;
+		const ImageCamera& image_camera = cropped_image_cameras_[index];
+		cv::Mat subimage = cropped_subimages_[index].clone();
+		for (int pole_with_lamp_index = 0; pole_with_lamp_index < pole_with_lamps.size(); ++pole_with_lamp_index) {
+			const PoleWithLamp& pole_with_lamp = pole_with_lamps[pole_with_lamp_index];
+			MarkSubimageWithPoleWithLampSurfaceAxisOutline(image_camera.subimage, image_camera.camera_model, pole_with_lamp, &subimage);
+		}
+		cv::imwrite(export_directory_ + NumberToString(index) + file_name + ".png", subimage);
+	}
+}
+
 bool ThinStructureReconstructor::FindBestNeighborRadiiOffsets(const TruncatedConePrimitive& truncated_cone, const TruncatedConePrimitive& original_truncated_cone, TruncatedConePrimitive* best_neighbor_truncated_cone) {
 	clock_t start = clock();
 	double best_sum_edge_response = 0.0;
@@ -1228,12 +1516,12 @@ bool ThinStructureReconstructor::FindBestNeighborRadiiOffsetsMultiThreading(cons
 				for (int delta_offset_pa_y_division = -1; delta_offset_pa_y_division <= 1; ++delta_offset_pa_y_division) {
 					for (int delta_offset_pb_x_division = -1; delta_offset_pb_x_division <= 1; ++delta_offset_pb_x_division) {
 						for (int delta_offset_pb_y_division = -1; delta_offset_pb_y_division <= 1; ++delta_offset_pb_y_division) {
-							const double delta_ra = delta_ra_division * 1.0 / 100;
-							const double delta_rb = delta_rb_division * 1.0 / 100;
-							const double delta_offset_pa_x = delta_offset_pa_x_division * 1.0 / 100;
-							const double delta_offset_pa_y = delta_offset_pa_y_division * 1.0 / 100;
-							const double delta_offset_pb_x = delta_offset_pb_x_division * 1.0 / 100;
-							const double delta_offset_pb_y = delta_offset_pb_y_division * 1.0 / 100;
+							const double delta_ra = delta_ra_division * 2.0 / 100;
+							const double delta_rb = delta_rb_division * 2.0 / 100;
+							const double delta_offset_pa_x = delta_offset_pa_x_division * 2.0 / 100;
+							const double delta_offset_pa_y = delta_offset_pa_y_division * 2.0 / 100;
+							const double delta_offset_pb_x = delta_offset_pb_x_division * 2.0 / 100;
+							const double delta_offset_pb_y = delta_offset_pb_y_division * 2.0 / 100;
 							TruncatedConePrimitive neighbor_truncated_cone = truncated_cone;
 							neighbor_truncated_cone.ra += delta_ra;
 							neighbor_truncated_cone.rb += delta_rb;
@@ -1342,10 +1630,10 @@ bool ThinStructureReconstructor::ComputeExtentsFromCroppedSubimages(const Trunca
 		truncated_cone_axial_sections[index_axial_section].rb = (1.0 - alpha_b) * truncated_cone.ra + alpha_b * truncated_cone.rb;
 		sum_edge_responses_truncated_cone_axial_sections[index_axial_section] = ComputeTruncatedConeSumEdgeResponse(truncated_cone_axial_sections[index_axial_section]);
 		cout << "index axial section: " << index_axial_section << " sum edge response: " << sum_edge_responses_truncated_cone_axial_sections[index_axial_section] << endl;
-		if (sum_edge_responses_truncated_cone_axial_sections[index_axial_section] >= 100.0 && (min_index < 0 || index_axial_section < min_index)) {
+		if (sum_edge_responses_truncated_cone_axial_sections[index_axial_section] >= 0.1 && (min_index < 0 || index_axial_section < min_index)) {
 			min_index = index_axial_section;
 		}
-		if (sum_edge_responses_truncated_cone_axial_sections[index_axial_section] >= 100.0 && (max_index < 0 || index_axial_section > max_index)) {
+		if (sum_edge_responses_truncated_cone_axial_sections[index_axial_section] >= 0.1 && (max_index < 0 || index_axial_section > max_index)) {
 			max_index = index_axial_section;
 		}
 	}
@@ -1358,6 +1646,86 @@ bool ThinStructureReconstructor::ComputeExtentsFromCroppedSubimages(const Trunca
 	truncated_cone_extents->ra = (1.0 - alpha_a) * truncated_cone.ra + alpha_a * truncated_cone.rb;
 	truncated_cone_extents->rb = (1.0 - alpha_b) * truncated_cone.ra + alpha_b * truncated_cone.rb;
 	return true;
+}
+
+bool ThinStructureReconstructor::ComputeExtentsFromCroppedSubimages(const TruncatedConePrimitive& truncated_cone, vector<TruncatedConePrimitive>* truncated_cone_extents) {
+	const int num_axial_sections = max(1, (int) ((truncated_cone.pa.ToEigenVector() - truncated_cone.pb.ToEigenVector()).norm() * 10));
+	cout << "num axial sections: " << num_axial_sections << endl;
+	vector<TruncatedConePrimitive> truncated_cone_axial_sections(num_axial_sections);
+	vector<double> sum_edge_responses_truncated_cone_axial_sections(num_axial_sections);
+	vector<int> valid_truncated_cone_axial_sections(num_axial_sections);
+	for (int index_axial_section = 0; index_axial_section < num_axial_sections; ++index_axial_section) {
+		const double alpha_a = index_axial_section * 1.0 / num_axial_sections;
+		const double alpha_b = (index_axial_section + 1) * 1.0 / num_axial_sections;
+		truncated_cone_axial_sections[index_axial_section].pa = Vector3d((1.0 - alpha_a) * truncated_cone.pa.ToEigenVector() + alpha_a * truncated_cone.pb.ToEigenVector());
+		truncated_cone_axial_sections[index_axial_section].pb = Vector3d((1.0 - alpha_b) * truncated_cone.pa.ToEigenVector() + alpha_b * truncated_cone.pb.ToEigenVector());
+		truncated_cone_axial_sections[index_axial_section].ra = (1.0 - alpha_a) * truncated_cone.ra + alpha_a * truncated_cone.rb;
+		truncated_cone_axial_sections[index_axial_section].rb = (1.0 - alpha_b) * truncated_cone.ra + alpha_b * truncated_cone.rb;
+		sum_edge_responses_truncated_cone_axial_sections[index_axial_section] = ComputeTruncatedConeSumEdgeResponse(truncated_cone_axial_sections[index_axial_section]);
+		cout << "index axial section: " << index_axial_section << " sum edge response: " << sum_edge_responses_truncated_cone_axial_sections[index_axial_section] << endl;
+		if (sum_edge_responses_truncated_cone_axial_sections[index_axial_section] >= 0.1) {
+			valid_truncated_cone_axial_sections[index_axial_section] = 1;
+		} else {
+			valid_truncated_cone_axial_sections[index_axial_section] = 0;
+		}
+	}
+	// Collect intervals
+	vector<pair<int, int> > intervals;
+	int interval_start = -1;
+	int interval_end = -1;
+	for (int index_axial_section = 0; index_axial_section < num_axial_sections; ++index_axial_section) {
+		if (valid_truncated_cone_axial_sections[index_axial_section] == 0) {
+			if (interval_start >= 0) {
+				intervals.push_back(make_pair(interval_start, interval_end));
+			}
+			interval_start = -1;
+			interval_end = -1;
+		} else {
+			if (interval_start < 0) {
+				interval_start = index_axial_section;
+			}
+			interval_end = index_axial_section;
+		}
+	}
+	if (interval_start >= 0) {
+		intervals.push_back(make_pair(interval_start, interval_end));
+	}
+	// Close gaps
+	{
+		int index = 0;
+		while (index + 1 < intervals.size()) {
+			if (intervals[index + 1].first - intervals[index].second < 80) {
+				intervals[index].second = intervals[index + 1].second;
+				intervals.erase(intervals.begin() + index + 1);
+			} else {
+				++index;
+			}
+		}
+	}
+	// Remove clutters
+	{
+		int index = 0;
+		while (index < intervals.size()) {
+			if (intervals[index].second - intervals[index].first < 20) {
+				intervals.erase(intervals.begin() + index);
+			} else {
+				++index;
+			}
+		}
+	}
+	// Generate output
+	for (int index = 0; index < intervals.size(); ++index) {
+		TruncatedConePrimitive truncated_cone_extent;
+		const double alpha_a = intervals[index].first * 1.0 / num_axial_sections;
+		const double alpha_b = (intervals[index].second + 1) * 1.0 / num_axial_sections;
+		truncated_cone_extent.pa = Vector3d((1.0 - alpha_a) * truncated_cone.pa.ToEigenVector() + alpha_a * truncated_cone.pb.ToEigenVector());
+		truncated_cone_extent.pb = Vector3d((1.0 - alpha_b) * truncated_cone.pa.ToEigenVector() + alpha_b * truncated_cone.pb.ToEigenVector());
+		truncated_cone_extent.ra = (1.0 - alpha_a) * truncated_cone.ra + alpha_a * truncated_cone.rb;
+		truncated_cone_extent.rb = (1.0 - alpha_b) * truncated_cone.ra + alpha_b * truncated_cone.rb;
+		truncated_cone_extents->push_back(truncated_cone_extent);
+	}
+
+	return !truncated_cone_extents->empty();
 }
 
 void ThinStructureReconstructor::ComputeCroppedSubimageTruncatedConesExtents() {
@@ -1378,6 +1746,8 @@ void ThinStructureReconstructor::ComputeCroppedSubimageTruncatedConesExtents() {
 void ThinStructureReconstructor::LoadTruncatedConesWithRadiiOffsetsExtents() {
 	cout << "Loading truncated cones with radii, offsets and extents" << endl;
 	truncated_cone_hypotheses_with_radii_offsets_extents_ = ImportTruncatedConePrimitives("truncated_cone_hypotheses_with_radii_offsets_extents.dat");
+	cout << "Loaded " << truncated_cone_hypotheses_with_radii_offsets_extents_.size()
+		 << " truncated cones with radii, offsets and extents" << endl;
 }
 
 void ThinStructureReconstructor::ComputeCroppedSubimageTruncatedConesWithOffsetsExtents() {
@@ -1389,8 +1759,8 @@ void ThinStructureReconstructor::ComputeCroppedSubimageTruncatedConesWithOffsets
 	cout << "Computing radii, offsets and extents of truncated cones" << endl;
 	truncated_cone_hypotheses_with_radii_offsets_extents_.clear();
 	for (int cylinder_index = 0; cylinder_index < extended_cylinder_hypotheses_.size(); ++cylinder_index) {
-		TruncatedConePrimitive best_truncated_cone_extent;
-		double best_truncated_cone_length = 0.0;
+		vector<TruncatedConePrimitive> best_truncated_cone_extent;
+		double best_truncated_cone_edge_response = 0.0;
 		for (int initial_index = 0; initial_index < radii_initials.size(); ++initial_index) {
 			const CylinderPrimitive& cylinder = extended_cylinder_hypotheses_[cylinder_index];
 			TruncatedConePrimitive truncated_cone(cylinder);
@@ -1409,22 +1779,28 @@ void ThinStructureReconstructor::ComputeCroppedSubimageTruncatedConesWithOffsets
 			cout << "Adjusted end point A: " << truncated_cone.pa.x << " " << truncated_cone.pa.y << " " << truncated_cone.pa.z << endl;
 			cout << "Adjusted end point B: " << truncated_cone.pb.x << " " << truncated_cone.pb.y << " " << truncated_cone.pb.z << endl;
 			cout << "Adjusted radius (buttom): " << truncated_cone.ra << " radius (top): " << truncated_cone.rb << endl;
-			//cout << "Adjusted sum edge response: " << current_sum_edge_response << endl;
-			TruncatedConePrimitive truncated_cone_extent;
+			cout << "Adjusted sum edge response: " << current_sum_edge_response << endl;
+			ComputeTruncatedConeSumEdgeResponseDebug(truncated_cone);
+			vector<TruncatedConePrimitive> truncated_cone_extent;
 			if (ComputeExtentsFromCroppedSubimages(truncated_cone, &truncated_cone_extent)) {
-				cout << "Adjusted length: " << truncated_cone_extent.GetLength() << endl;
-				if (truncated_cone_extent.GetLength() > best_truncated_cone_length) {
+				const double cropped_sum_edge_response = ComputeTruncatedConeSumEdgeResponse(truncated_cone_extent);
+				cout << "Adjusted cropped sum edge response: " << cropped_sum_edge_response << endl;
+				if (cropped_sum_edge_response > best_truncated_cone_edge_response) {
 					best_truncated_cone_extent = truncated_cone_extent;
-					best_truncated_cone_length = truncated_cone_extent.GetLength();
+					best_truncated_cone_edge_response = cropped_sum_edge_response;
 				}
 			}
 		}
-		if (best_truncated_cone_length > 0.0) {
-			truncated_cone_hypotheses_with_radii_offsets_extents_.push_back(best_truncated_cone_extent);
+		if (best_truncated_cone_edge_response > 0.0) {
+			truncated_cone_hypotheses_with_radii_offsets_extents_.insert(
+				truncated_cone_hypotheses_with_radii_offsets_extents_.end(), 
+				best_truncated_cone_extent.begin(), best_truncated_cone_extent.end());
 		}
-		cout << "Best radius (buttom): " << best_truncated_cone_extent.ra << " radius (top): " << best_truncated_cone_extent.rb << endl;
-		cout << "Best length: " << best_truncated_cone_length << endl;
-		//cout << "Best sum edge response: " << best_sum_edge_response << endl;
+		for (int index = 0; index < best_truncated_cone_extent.size(); ++index) {
+			const TruncatedConePrimitive& truncated_cone = best_truncated_cone_extent[index];
+			cout << "Best radius (buttom): " << truncated_cone.ra << " radius (top): " << truncated_cone.rb << endl;
+		}
+		cout << "Best edge response: " << best_truncated_cone_edge_response << endl;
 	}
 	double duration = (clock() - start) / (double) CLOCKS_PER_SEC;
 	cout << "Time spent in computing radii, offsets and extents of truncated cones: " << duration << "s" << endl;
@@ -1454,3 +1830,170 @@ void ThinStructureReconstructor::ExportRawSubimagesWithMarkedTruncatedCones(cons
 		cv::imwrite(export_directory_ + NumberToString(index) + file_name + ".png", subimage);
 	}
 }
+
+pcl::PointCloud<pcl::PointXYZ> ThinStructureReconstructor::ComputeTruncatedConeNeighboringPoints(const TruncatedConePrimitive& truncated_cone) {
+	pcl::PointCloud<pcl::PointXYZ> points;
+	for (int index = 0; index < point_cloud_.points.size(); ++index) {
+		if ((Eigen::Vector2d(truncated_cone.pa.x - point_cloud_.points[index].x, 
+			                truncated_cone.pa.y - point_cloud_.points[index].y).norm() < 3.0
+			|| Eigen::Vector2d(truncated_cone.pb.x - point_cloud_.points[index].x, 
+			                truncated_cone.pb.y - point_cloud_.points[index].y).norm() < 3.0)
+			&& point_cloud_.points[index].z < truncated_cone.pb.z + 1.0
+			&& point_cloud_.points[index].z > truncated_cone.pa.z - 1.0) {
+				points.points.push_back(point_cloud_.points[index]);
+		}
+	}
+	points.width = points.points.size();
+	points.height = 1;
+	cout << "Neighboring points: " << points.points.size() << endl;
+	return points;
+}
+
+pcl::PointCloud<pcl::PointXYZ> ThinStructureReconstructor::ComputeTopRegionNeighboringPoints(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const TruncatedConePrimitive& truncated_cone) {
+	cout << "Computing top region neighboring points" << endl;
+	pcl::PointCloud<pcl::PointXYZ> points;
+	for (int index = 0; index < point_cloud.points.size(); ++index) {
+		if (point_cloud.points[index].z < truncated_cone.pb.z + 1.0
+			&& point_cloud.points[index].z > truncated_cone.pb.z - 1.0
+			&& Eigen::Vector2d(truncated_cone.pb.x - point_cloud.points[index].x, 
+			                   truncated_cone.pb.y - point_cloud.points[index].y).norm() > 0.5) {
+				points.points.push_back(point_cloud.points[index]);
+		}
+	}
+	points.width = points.points.size();
+	points.height = 1;
+	cout << "Top region neighboring points: " << points.points.size() << endl;
+	return points;
+}
+
+PoleWithLamp ThinStructureReconstructor::ComputePoleWithLampFromTopRegionNeighboringPoints(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const TruncatedConePrimitive& truncated_cone) {
+	cout << "Computing end points of top region neighboring points" << endl;
+	if (point_cloud.points.size() == 0) {
+		return PoleWithLamp(truncated_cone);
+	}
+
+	struct Node {
+		int index;
+		double angle;
+		Node() {}
+		Node(int ind, double ang) : index(ind), angle(ang) {}
+		bool operator< (const Node& node) {
+			return angle < node.angle;
+		}
+	};
+
+	vector<Node> nodes;
+	for (int index = 0; index < point_cloud.points.size(); ++index) {
+		const pcl::PointXYZ& point = point_cloud.points[index];
+		double angle = atan2(point.y - truncated_cone.pb.y, point.x - truncated_cone.pb.x);
+		nodes.push_back(Node(index, angle));
+	}
+	sort(nodes.begin(), nodes.end());
+	for (int index = 0; index < nodes.size(); ++index) {
+		cout << nodes[index].angle << " ";
+	}
+	cout << endl;
+	int max_population = -1;
+	int max_index;
+	int max_upper_index;
+	int max_lower_index;
+	for (int index = 0; index < nodes.size(); ++index) {
+		int upper_index = index;
+		int lower_index = index;
+		while ((upper_index + 1) % nodes.size() != index
+			&& AngleDiff(nodes[(upper_index + 1) % nodes.size()].angle, nodes[index].angle) < 0.2) {
+			upper_index = (upper_index + 1) % nodes.size();
+		}
+		while ((lower_index - 1 + nodes.size()) % nodes.size() != index
+			&& (lower_index - 1 + nodes.size()) % nodes.size() != upper_index
+			&& AngleDiff(nodes[index].angle, nodes[(lower_index - 1 + nodes.size()) % nodes.size()].angle) < 0.2) {
+			lower_index = (lower_index - 1 + nodes.size()) % nodes.size();
+		}
+		cout << "index: " << index << " angle: " << nodes[index].angle << endl;
+		cout << "lower_index: " << lower_index << " upper_index: " << upper_index << endl;
+		int current_population = IndexDiff(upper_index, lower_index, nodes.size()) + 1;
+		if (current_population > max_population) {
+			max_population = current_population;
+			max_index = index;
+			max_upper_index = upper_index;
+			max_lower_index = lower_index;
+		}
+	}
+	cout << "max_index: " << max_index << " max_population: " << max_population << endl;
+	double angle = nodes[max_index].angle;
+	double length = 0.0;
+	for (int index = max_lower_index; index != max_upper_index; index = (index + 1) % nodes.size()) {
+		int current_length = (Vector3d(point_cloud.points[nodes[index].index]).ToEigenVector() - 
+			truncated_cone.pb.ToEigenVector()).norm();
+		if (current_length > length) {
+			length = current_length;
+		}
+	}
+	cout << "angle: " << angle << endl;
+	cout << "length: " << length << endl;
+	Vector3d end_point = truncated_cone.pb.ToEigenVector()
+		+ length * cos(angle) * Eigen::Vector3d(1.0, 0.0, 0.0)
+		+ length * sin(angle) * Eigen::Vector3d(0.0, 1.0, 0.0);
+	cout << "end_point: " << end_point.ToEigenVector();
+	int num_inliers = 0;
+	for (int index = 0; index < point_cloud.points.size(); ++index) {
+		const pcl::PointXYZ& point = point_cloud.points[index];
+		if (PointToSegmentDistance(point, truncated_cone.pb, end_point) < 1.0) {
+			++ num_inliers;
+		}
+	}
+	cout << "num_inliers: " << num_inliers << endl;
+	cout << "ratio: " << (double) num_inliers / point_cloud.points.size() << endl;
+	if (num_inliers > point_cloud.points.size() * 0.8 && num_inliers > 600) {
+		cout << "Positive" << endl;
+		return PoleWithLamp(truncated_cone, end_point);
+	} else {
+		cout << "Negative" << endl;
+		return PoleWithLamp(truncated_cone);
+	}
+}
+
+void ThinStructureReconstructor::ComputePoleWithLamps() {
+	pole_with_lamps_.clear();
+	for (int truncated_cone_index = 0; truncated_cone_index < truncated_cone_hypotheses_with_radii_offsets_extents_.size(); ++truncated_cone_index) {
+		cout << "Computing lamps for truncated cone #" << truncated_cone_index << endl;
+		const TruncatedConePrimitive& truncated_cone = truncated_cone_hypotheses_with_radii_offsets_extents_[truncated_cone_index];
+		pcl::PointCloud<pcl::PointXYZ> point_cloud;
+		if (import_neighboring_points_) {
+			point_cloud = ImportPointCloud("truncated_cone_neighboring_points_" + NumberToString(truncated_cone_index) + ".xyz");
+		} else {
+			point_cloud = ComputeTruncatedConeNeighboringPoints(truncated_cone);
+			ExportPointCloud(point_cloud, "truncated_cone_neighboring_points_" + NumberToString(truncated_cone_index) + ".xyz");
+		}
+		pcl::PointCloud<pcl::PointXYZ> point_cloud_top_region = ComputeTopRegionNeighboringPoints(point_cloud, truncated_cone);
+		ExportPointCloud(point_cloud_top_region, "truncated_cone_top_region_neighboring_points_" + NumberToString(truncated_cone_index) + ".xyz");
+		PoleWithLamp pole_with_lamp = ComputePoleWithLampFromTopRegionNeighboringPoints(point_cloud_top_region, truncated_cone);
+		pole_with_lamps_.push_back(pole_with_lamp);
+	}
+	ExportPoleWithLampPrimitives(pole_with_lamps_, "pole_with_lamps.dat");
+	ExportPoleWithLampMeshes(pole_with_lamps_, "pole_with_lamps.obj");
+	ExportCroppedSubimagesWithMarkedPoleWithLamps(pole_with_lamps_, "_marked_pole_with_lamps");
+}
+
+void ThinStructureReconstructor::LoadPoleWithLamps() {
+	pole_with_lamps_ = ImportPoleWithLampPrimitives("pole_with_lamps.dat");
+}
+
+void ThinStructureReconstructor::ExportRawSubimagesWithMarkedPoleWithLamps() {
+	ExportRawSubimagesWithMarkedPoleWithLamps(pole_with_lamps_, "_marked_pole_with_lamps");
+}
+
+void ThinStructureReconstructor::ExportRawSubimagesWithMarkedPoleWithLamps(const vector<PoleWithLamp>& pole_with_lamps, const string& file_name) {
+	for (int index = 0; index < dataset_.image_cameras.size(); ++index) {
+		cout << "Loading raw subimage #" << index << endl;
+		const ImageCamera& image_camera = dataset_.image_cameras[index];
+		cv::Mat subimage = cv::imread(image_camera.subimage.file_path, CV_LOAD_IMAGE_COLOR);
+		cout << "Exporting raw subimage #" << index << endl;
+		for (int pole_with_lamp_index = 0; pole_with_lamp_index < pole_with_lamps.size(); ++pole_with_lamp_index) {
+			const PoleWithLamp& pole_with_lamp = pole_with_lamps[pole_with_lamp_index];
+			MarkSubimageWithPoleWithLampSurfaceAxisOutline(image_camera.subimage, image_camera.camera_model, pole_with_lamp, &subimage);
+		}
+		cv::imwrite(export_directory_ + NumberToString(index) + file_name + ".png", subimage);
+	}
+}
+

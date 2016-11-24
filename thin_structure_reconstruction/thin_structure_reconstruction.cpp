@@ -56,8 +56,20 @@ int main(int argc, char** argv) {
 	result = time(NULL);
 	cout << "Time: " << asctime(localtime(&result)) << endl;
 
-	reconstructor.ComputeFilteredPoints();
-	//reconstructor.LoadFilteredPoints();
+	reconstructor.ComputePCAFilteredPoints();
+	//reconstructor.LoadPCAFilteredPoints();
+
+	result = time(NULL);
+	cout << "Time: " << asctime(localtime(&result)) << endl;
+
+	reconstructor.ComputeEmptinessValues();
+	//reconstructor.LoadEmptinessValues();
+
+	result = time(NULL);
+	cout << "Time: " << asctime(localtime(&result)) << endl;
+
+	reconstructor.ComputeEmptinessFilteredPoints();
+	//reconstructor.LoadEmptinessFilteredPoints();
 
 	result = time(NULL);
 	cout << "Time: " << asctime(localtime(&result)) << endl;

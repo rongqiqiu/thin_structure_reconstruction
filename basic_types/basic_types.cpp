@@ -85,3 +85,37 @@ string ReadFileToString(const string& full_path) {
 int round(const double& number) {
 	return number + .5;
 }
+
+double AngleDiff(const double angle1, const double angle2) {
+	double a1 = angle1;
+	double a2 = angle2;
+	if (a1 >= a2) {
+		return a1 - a2;
+	} else {
+		return a1 - a2 + PI * 2;
+	}
+}
+
+double IndexDiff(const int index1, const int index2, const int total) {
+	if (index1 >= index2) {
+		return index1 - index2;
+	} else {
+		return index1 - index2 + total;
+	}
+}
+
+const double PI = acos(-1.0);
+
+double PointToSegmentDistance(const Vector3d& point, const Vector3d& end_point_1, const Vector3d& end_point_2) {
+	double length = (end_point_2.ToEigenVector() - end_point_1.ToEigenVector()).norm();
+	Eigen::Vector3d direction = (end_point_2.ToEigenVector() - end_point_1.ToEigenVector()).normalized();
+	double dot_product = direction.dot(point.ToEigenVector() - end_point_1.ToEigenVector());
+	Eigen::Vector3d projected_point = end_point_1.ToEigenVector() + dot_product * direction;
+	if (dot_product < 0.0) {
+		return (point.ToEigenVector() - end_point_1.ToEigenVector()).norm();
+	} else if (dot_product > length) {
+		return (point.ToEigenVector() - end_point_2.ToEigenVector()).norm();
+	} else {
+		return (point.ToEigenVector() - projected_point).norm();
+	}
+}

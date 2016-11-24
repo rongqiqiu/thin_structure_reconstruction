@@ -16,6 +16,7 @@ int main(int argc, char** argv) {
 	const string export_directory = argv[2];
 	const string dataset_index = argv[3];
 	const string run_id = argv[4];
+	const string folder_name = argv[5];
 
 	double utm_x, utm_y, utm_z;
 	ifstream in_stream(export_directory + dataset_index + "\\dataset_reference_point.txt");
@@ -30,12 +31,12 @@ int main(int argc, char** argv) {
 	data_parser.SetRadius(50.0);
 	data_parser.SetRootDirectory(root_directory);
 	data_parser.SetUtmReferencePoint(Vector3d(utm_x, utm_y, utm_z));
-	data_parser.Parse(StringToNumber(dataset_index), run_id + "\\ground_truth");
+	data_parser.Parse(StringToNumber(dataset_index), run_id + "\\" + folder_name);
 
 	const vector<Dataset> datasets = data_parser.GetDatasets();
 	const Dataset& dataset = datasets[0];
 
-	ThinStructureReconstructor reconstructor(dataset, export_directory + dataset_index + "\\" + run_id + "\\ground_truth\\");
+	ThinStructureReconstructor reconstructor(dataset, export_directory + dataset_index + "\\" + run_id + "\\" + folder_name + "\\");
 	reconstructor.LoadTruncatedConesWithRadiiOffsetsExtents();
 	reconstructor.ExportTruncatdConesMeshesWithRadiiOffsetsExtents();
 	reconstructor.ExportRawSubimagesWithMarkedTruncatedConesWithRadiiOffsetsExtents();

@@ -37,10 +37,39 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "evaluate_entire_dataset", "
 		{DC516AF2-2A2C-41F5-A890-9A54EE427F95} = {DC516AF2-2A2C-41F5-A890-9A54EE427F95}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "visualize_ground_truth_entire_dataset", "visualize_ground_truth_entire_dataset\visualize_ground_truth_entire_dataset.vcxproj", "{76A840A9-5EAF-4C20-B5E5-368CD721027C}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "visualize_results_entire_dataset", "visualize_ground_truth_entire_dataset\visualize_ground_truth_entire_dataset.vcxproj", "{76A840A9-5EAF-4C20-B5E5-368CD721027C}"
 	ProjectSection(ProjectDependencies) = postProject
 		{E015DFAE-EC83-4453-BAF4-4E739D922D80} = {E015DFAE-EC83-4453-BAF4-4E739D922D80}
 		{C49932E4-D040-45A7-930C-E5C86198710E} = {C49932E4-D040-45A7-930C-E5C86198710E}
+		{DC516AF2-2A2C-41F5-A890-9A54EE427F95} = {DC516AF2-2A2C-41F5-A890-9A54EE427F95}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "run_all_datasets", "run_all_datasets\run_all_datasets.vcxproj", "{6E4B7B38-4ED6-4B6E-B7B4-3449BA98CD00}"
+	ProjectSection(ProjectDependencies) = postProject
+		{DC516AF2-2A2C-41F5-A890-9A54EE427F95} = {DC516AF2-2A2C-41F5-A890-9A54EE427F95}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "thin_structure_attachment_reconstruction", "thin_structure_attachment_reconstruction\thin_structure_attachment_reconstruction.vcxproj", "{912646AC-3876-4622-A258-2DE46D6BD24E}"
+	ProjectSection(ProjectDependencies) = postProject
+		{E015DFAE-EC83-4453-BAF4-4E739D922D80} = {E015DFAE-EC83-4453-BAF4-4E739D922D80}
+		{C49932E4-D040-45A7-930C-E5C86198710E} = {C49932E4-D040-45A7-930C-E5C86198710E}
+		{DC516AF2-2A2C-41F5-A890-9A54EE427F95} = {DC516AF2-2A2C-41F5-A890-9A54EE427F95}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "collect_attachment_entire_dataset", "collect_attachment_entire_dataset\collect_attachment_entire_dataset.vcxproj", "{7005AC70-ABEF-4DE4-8B0C-530D36E4E95E}"
+	ProjectSection(ProjectDependencies) = postProject
+		{E015DFAE-EC83-4453-BAF4-4E739D922D80} = {E015DFAE-EC83-4453-BAF4-4E739D922D80}
+		{C49932E4-D040-45A7-930C-E5C86198710E} = {C49932E4-D040-45A7-930C-E5C86198710E}
+		{DC516AF2-2A2C-41F5-A890-9A54EE427F95} = {DC516AF2-2A2C-41F5-A890-9A54EE427F95}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "run_attachment_entire_dataset", "run_attachment_entire_dataset\run_attachment_entire_dataset.vcxproj", "{7D349812-0EAB-4B71-93D6-20F3BFA92BE4}"
+	ProjectSection(ProjectDependencies) = postProject
+		{DC516AF2-2A2C-41F5-A890-9A54EE427F95} = {DC516AF2-2A2C-41F5-A890-9A54EE427F95}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "run_attachment_all_datasets", "run_attachment_all_datasets\run_attachment_all_datasets.vcxproj", "{9DABA70C-F7B4-481B-AE76-27434982300D}"
+	ProjectSection(ProjectDependencies) = postProject
 		{DC516AF2-2A2C-41F5-A890-9A54EE427F95} = {DC516AF2-2A2C-41F5-A890-9A54EE427F95}
 	EndProjectSection
 EndProject
@@ -82,6 +111,26 @@ Global
 		{76A840A9-5EAF-4C20-B5E5-368CD721027C}.Debug|Win32.Build.0 = Debug|Win32
 		{76A840A9-5EAF-4C20-B5E5-368CD721027C}.Release|Win32.ActiveCfg = Release|Win32
 		{76A840A9-5EAF-4C20-B5E5-368CD721027C}.Release|Win32.Build.0 = Release|Win32
+		{6E4B7B38-4ED6-4B6E-B7B4-3449BA98CD00}.Debug|Win32.ActiveCfg = Debug|Win32
+		{6E4B7B38-4ED6-4B6E-B7B4-3449BA98CD00}.Debug|Win32.Build.0 = Debug|Win32
+		{6E4B7B38-4ED6-4B6E-B7B4-3449BA98CD00}.Release|Win32.ActiveCfg = Release|Win32
+		{6E4B7B38-4ED6-4B6E-B7B4-3449BA98CD00}.Release|Win32.Build.0 = Release|Win32
+		{912646AC-3876-4622-A258-2DE46D6BD24E}.Debug|Win32.ActiveCfg = Debug|Win32
+		{912646AC-3876-4622-A258-2DE46D6BD24E}.Debug|Win32.Build.0 = Debug|Win32
+		{912646AC-3876-4622-A258-2DE46D6BD24E}.Release|Win32.ActiveCfg = Release|Win32
+		{912646AC-3876-4622-A258-2DE46D6BD24E}.Release|Win32.Build.0 = Release|Win32
+		{7005AC70-ABEF-4DE4-8B0C-530D36E4E95E}.Debug|Win32.ActiveCfg = Debug|Win32
+		{7005AC70-ABEF-4DE4-8B0C-530D36E4E95E}.Debug|Win32.Build.0 = Debug|Win32
+		{7005AC70-ABEF-4DE4-8B0C-530D36E4E95E}.Release|Win32.ActiveCfg = Release|Win32
+		{7005AC70-ABEF-4DE4-8B0C-530D36E4E95E}.Release|Win32.Build.0 = Release|Win32
+		{7D349812-0EAB-4B71-93D6-20F3BFA92BE4}.Debug|Win32.ActiveCfg = Debug|Win32
+		{7D349812-0EAB-4B71-93D6-20F3BFA92BE4}.Debug|Win32.Build.0 = Debug|Win32
+		{7D349812-0EAB-4B71-93D6-20F3BFA92BE4}.Release|Win32.ActiveCfg = Release|Win32
+		{7D349812-0EAB-4B71-93D6-20F3BFA92BE4}.Release|Win32.Build.0 = Release|Win32
+		{9DABA70C-F7B4-481B-AE76-27434982300D}.Debug|Win32.ActiveCfg = Debug|Win32
+		{9DABA70C-F7B4-481B-AE76-27434982300D}.Debug|Win32.Build.0 = Debug|Win32
+		{9DABA70C-F7B4-481B-AE76-27434982300D}.Release|Win32.ActiveCfg = Release|Win32
+		{9DABA70C-F7B4-481B-AE76-27434982300D}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -204,6 +204,24 @@ struct TruncatedConePrimitive {
 	}
 };
 
+struct PoleWithLamp {
+	TruncatedConePrimitive truncated_cone;
+	bool has_lamp;
+	Vector3d end_point;
+	PoleWithLamp() : has_lamp(false) {}
+	PoleWithLamp(const TruncatedConePrimitive& input_truncated_cone) : truncated_cone(input_truncated_cone), has_lamp(false) {}
+	PoleWithLamp(const Vector3d& input_end_point) : has_lamp(true), end_point(input_end_point) {}
+	PoleWithLamp(const TruncatedConePrimitive& input_truncated_cone, const Vector3d& input_end_point)
+		: truncated_cone(input_truncated_cone), has_lamp(true), end_point(input_end_point) {}
+	TruncatedConePrimitive GetArmTruncatedCone() const {
+		TruncatedConePrimitive arm_truncated_cone;
+		arm_truncated_cone.ra = arm_truncated_cone.rb = truncated_cone.rb;
+		arm_truncated_cone.pa = truncated_cone.pb;
+		arm_truncated_cone.pb = end_point;
+		return arm_truncated_cone;
+	}
+};
+
 pcl::PointXYZ Vector3dToPointXYZ(const Vector3d& input_point, const Vector3d& reference_point);
 pcl::PointCloud<pcl::PointXYZ> VectorVector3dToPointCloud(const vector<Vector3d>& input_vector, const Vector3d& reference_point);
 
@@ -216,5 +234,12 @@ string NumberToString(const int& number);
 int StringToNumber(const string& str);
 string ReadFileToString(const string& relative_path);
 int round(const double& number);
+
+double AngleDiff(const double angle1, const double angle2);
+double IndexDiff(const int index1, const int index2, const int total);
+
+extern const double PI;
+
+double PointToSegmentDistance(const Vector3d& point, const Vector3d& end_point_1, const Vector3d& end_point_2);
 
 #endif

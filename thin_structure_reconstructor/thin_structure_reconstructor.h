@@ -9,12 +9,12 @@
 
 class ThinStructureReconstructor {
 public:
-	ThinStructureReconstructor() {}
-	ThinStructureReconstructor(const Dataset& dataset) : dataset_(dataset) {
+	ThinStructureReconstructor() : import_neighboring_points_(false) {}
+	ThinStructureReconstructor(const Dataset& dataset) : import_neighboring_points_(false), dataset_(dataset) {
 		ParseDataset();
 	}
 	ThinStructureReconstructor(const Dataset& dataset, const string& export_directory) 
-		: dataset_(dataset), export_directory_(export_directory) {
+		: import_neighboring_points_(false), dataset_(dataset), export_directory_(export_directory) {
 		ParseDataset();
 	}
 	void SetDataset(const Dataset& dataset) {
@@ -28,12 +28,19 @@ public:
 	void SetExportDirectory(const string& export_directory) {
 		export_directory_ = export_directory;
 	}
+	void SetImportNeighboringPoints(bool import_neighboring_points) {
+		import_neighboring_points_ = import_neighboring_points;
+	}
 	void ExportReferencePoint();
 	void ExportRawPoints();
 	void ComputePCAValues();
 	void LoadPCAValues();
-	void ComputeFilteredPoints();
-	void LoadFilteredPoints();
+	void ComputeEmptinessValues();
+	void LoadEmptinessValues();
+	void ComputePCAFilteredPoints();
+	void LoadPCAFilteredPoints();
+	void ComputeEmptinessFilteredPoints();
+	void LoadEmptinessFilteredPoints();
 	void ComputeRANSAC();
 	void LoadRANSAC();
 	void ComputeCylinderHypotheses();
@@ -59,6 +66,9 @@ public:
 	void ExportTruncatdConesMeshesWithRadiiOffsetsExtents();
 	void ExportRawSubimagesWithMarkedTruncatedConesWithRadiiOffsetsExtents();
 	void ExportCroppedSubimagesWithMarkedTruncatedCone(const TruncatedConePrimitive& truncated_cone, const string& file_name);
+	void ComputePoleWithLamps();
+	void LoadPoleWithLamps();
+	void ExportRawSubimagesWithMarkedPoleWithLamps();
 private:
 	string export_directory_;
 	Dataset dataset_;
@@ -66,7 +76,9 @@ private:
 	pcl::PointCloud<pcl::PointXYZ> point_cloud_;
 	pcl::PointCloud<pcl::PointXYZ> point_cloud_subsampled_;
 	vector<Vector3d> pca_values_;
-	vector<int> index_filtered_;
+	vector<double> emptiness_values_;
+	pcl::PointCloud<pcl::PointXYZ> point_cloud_pca_filtered_;
+	pcl::PointCloud<pcl::PointXYZ> point_cloud_emptiness_filtered_;
 	pcl::PointCloud<pcl::PointXYZ> point_cloud_filtered_;
 	vector<CylinderPrimitive> cylinder_hypotheses_;
 	vector<CylinderPrimitive> extended_cylinder_hypotheses_;
@@ -77,6 +89,8 @@ private:
 	vector<TruncatedConePrimitive> truncated_cone_hypotheses_with_radii_;
 	vector<TruncatedConePrimitive> truncated_cone_hypotheses_with_radii_offsets_;
 	vector<TruncatedConePrimitive> truncated_cone_hypotheses_with_radii_offsets_extents_;
+	bool import_neighboring_points_;
+	vector<PoleWithLamp> pole_with_lamps_;
 
 	void ExportPointCloud(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const string& file_name);
 	pcl::PointCloud<pcl::PointXYZ> ImportPointCloud(const string& file_name);
@@ -90,8 +104,11 @@ private:
 	void ExportCylinderMeshes(const vector<CylinderPrimitive>& cylinders, const string& file_name);
 	void ExportTruncatedConePrimitives(const vector<TruncatedConePrimitive>& truncated_cones, const string& file_name);
 	void ExportTruncatedConeMeshes(const vector<TruncatedConePrimitive>& truncated_cones, const string& file_name);
+	void ExportPoleWithLampPrimitives(const vector<PoleWithLamp>& pole_with_lamps, const string& file_name);
+	void ExportPoleWithLampMeshes(const vector<PoleWithLamp>& pole_with_lamps, const string& file_name);
 	vector<CylinderPrimitive> ImportCylinderPrimitives(const string& file_name);
 	vector<TruncatedConePrimitive> ImportTruncatedConePrimitives(const string& file_name);
+	vector<PoleWithLamp> ImportPoleWithLampPrimitives(const string& file_name);
 	Vector3d ComputeXYCentroid(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const vector<int>& pointIdx);
 	void ComputeExtentsFromPointCloud(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const vector<int>& pointIdx, const Vector3d& axis, const Vector3d& point, double* min_dot, double* max_dot);
 	pcl::PointCloud<pcl::PointXYZ> ProjectXY(const pcl::PointCloud<pcl::PointXYZ>& input_cloud);
@@ -110,6 +127,7 @@ private:
 	double ComputeOutlineAngle(const ExportCameraModel& camera_model, const TruncatedConePrimitive& truncated_cone);
 	void MarkSubimageWithCylinderOutline(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage);
 	void MarkSubimageWithTruncatedConeOutline(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const TruncatedConePrimitive& truncated_cone, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage);
+	void MarkSubimageWithPoleWithLampSurfaceAxisOutline(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const PoleWithLamp& pole_with_lamp, cv::Mat* subimage);
 	cv::Mat ComputeVerticalEdgeMap(const cv::Mat& subimage, const int& index);
 	double RetrieveSubimagePixelRounding(const RasterizedSubimage& rasterized_subimage, const Vector2d& pixel, const cv::Mat& subimage);
 	double RetrieveSubimagePixel(const RasterizedSubimage& rasterized_subimage, const Vector2d& pixel, const cv::Mat& subimage);
@@ -118,14 +136,22 @@ private:
 	double ComputeCylinderEdgeResponse(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Mat& subimage);
 	double ComputeTruncatedConeEdgeResponse(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const TruncatedConePrimitive& truncated_cone, const cv::Mat& subimage);
 	double ComputeTruncatedConeSumEdgeResponse(const TruncatedConePrimitive& truncated_cone);
+	double ComputeTruncatedConeSumEdgeResponse(const vector<TruncatedConePrimitive>& truncated_cone);
+	double ComputeTruncatedConeSumEdgeResponseDebug(const TruncatedConePrimitive& truncated_cone);
 	cv::Mat ExtractCroppedSubimage(const cv::Mat& raw_subimage, const HalfOpenBox2i& raw_bounds, const HalfOpenBox2i& cropped_bounds);
 	Vector2d ProjectShiftedUtmPoint(const ExportCameraModel& camera_model, const Vector3d& shifted_utm_point);
 	void TestBilinearPixelRetrieval();
 	void ExportCroppedSubimagesWithMarkedTruncatedCones(const vector<TruncatedConePrimitive>& truncated_cones, const string& file_name);
+	void ExportCroppedSubimagesWithMarkedPoleWithLamps(const vector<PoleWithLamp>& pole_with_lamps, const string& file_name);
 	bool FindBestNeighborRadiiOffsets(const TruncatedConePrimitive& truncated_cone, const TruncatedConePrimitive& original_truncated_cone, TruncatedConePrimitive* best_neighbor_truncated_cone);
 	bool FindBestNeighborRadiiOffsetsMultiThreading(const TruncatedConePrimitive& truncated_cone, const TruncatedConePrimitive& original_truncated_cone, TruncatedConePrimitive* best_neighbor_truncated_cone, double* best_sum_edge_response);
 	bool ComputeExtentsFromCroppedSubimages(const TruncatedConePrimitive& truncated_cone, TruncatedConePrimitive* truncated_cone_extents);
+	bool ComputeExtentsFromCroppedSubimages(const TruncatedConePrimitive& truncated_cone, vector<TruncatedConePrimitive>* truncated_cone_extents);
 	void ExportRawSubimagesWithMarkedTruncatedCones(const vector<TruncatedConePrimitive>& truncated_cones, const string& file_name);
+	pcl::PointCloud<pcl::PointXYZ> ComputeTruncatedConeNeighboringPoints(const TruncatedConePrimitive& truncated_cone);
+	pcl::PointCloud<pcl::PointXYZ> ComputeTopRegionNeighboringPoints(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const TruncatedConePrimitive& truncated_cone);
+	PoleWithLamp ComputePoleWithLampFromTopRegionNeighboringPoints(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const TruncatedConePrimitive& truncated_cone);
+	void ExportRawSubimagesWithMarkedPoleWithLamps(const vector<PoleWithLamp>& pole_with_lamps, const string& file_name);
 public:
 	friend void ThreadHelperFunc(ThinStructureReconstructor* thin_structure_reconstructor, TruncatedConePrimitive* truncated_cone, double* result);
 };

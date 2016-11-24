@@ -11,10 +11,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{76A840A9-5EAF-4C20-B5E5-368CD721027C}</ProjectGuid>
+    <ProjectGuid>{7005AC70-ABEF-4DE4-8B0C-530D36E4E95E}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>visualize_ground_truth_entire_dataset</RootNamespace>
-    <ProjectName>visualize_results_entire_dataset</ProjectName>
+    <RootNamespace>collect_attachment_entire_dataset</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -81,7 +80,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="visualize_results_entire_dataset.cpp" />
+    <ClCompile Include="collect_attachment_entire_dataset.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
