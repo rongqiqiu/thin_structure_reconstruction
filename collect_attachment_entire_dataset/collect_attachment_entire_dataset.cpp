@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
 
 	const string output_directory = export_directory + dataset_index + "\\" + run_id + "\\all\\";
 
-	ofstream out_stream(output_directory + "pole_with_lamps.dat");
+	ofstream out_stream(output_directory + "adjusted_pole_with_lamps.dat");
 
 	for (int region_index_x = 0; region_index_x < 5; ++ region_index_x) {
 		for (int region_index_y = 0; region_index_y < 5; ++ region_index_y) {
@@ -40,15 +40,15 @@ int main(int argc, char** argv) {
 			const double region_utm_z = utm_z + offset_z;
 
 			const string sub_directory = export_directory + dataset_index + "\\" + run_id + "\\" + NumberToString(region_index_x) + "_" + NumberToString(region_index_y) + "\\";
-			cout << sub_directory + "pole_with_lamps.dat" << endl;
+			cout << sub_directory + "adjusted_pole_with_lamps.dat" << endl;
 
-			double p1x, p1y, p1z, p2x, p2y, p2z, r1, r2, ex, ey, ez;
+			double p1x, p1y, p1z, p2x, p2y, p2z, r1, r2, ex, ey, ez, rl, rs;
 			int has_lamp;
-			ifstream in_stream(sub_directory + "pole_with_lamps.dat");
+			ifstream in_stream(sub_directory + "adjusted_pole_with_lamps.dat");
 			while (in_stream >> p1x >> p1y >> p1z >> p2x >> p2y >> p2z >> r1 >> r2) {
 				in_stream >> has_lamp;
 				if (has_lamp) {
-					in_stream >> ex >> ey >> ez;
+					in_stream >> ex >> ey >> ez >> rl >> rs;
 				}
 				out_stream << setprecision(8) << fixed;
 				out_stream << p1x + offset_x << " " << p1y + offset_y << " " << p1z + offset_z << " ";
@@ -56,6 +56,7 @@ int main(int argc, char** argv) {
 				out_stream << r1 << " " << r2 << " " << has_lamp;
 				if (has_lamp) {
 					out_stream << " " << ex + offset_x << " " << ey + offset_y << " " << ez + offset_z;
+					out_stream << " " << rl << " " << rs;
 				}
 				out_stream << endl;
 			}
@@ -79,8 +80,8 @@ int main(int argc, char** argv) {
 	const Dataset& dataset = datasets[0];
 
 	ThinStructureReconstructor reconstructor(dataset, export_directory + dataset_index + "\\" + run_id + "\\all\\");
-	reconstructor.LoadPoleWithLamps();
-	reconstructor.ExportRawSubimagesWithMarkedPoleWithLamps();
+	reconstructor.LoadAdjustedPoleWithLamps();
+	reconstructor.ExportRawSubimagesWithMarkedAdjustedPoleWithLamps();
 
 	return 0;
 }

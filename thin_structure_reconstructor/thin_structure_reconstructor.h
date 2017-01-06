@@ -55,6 +55,7 @@ public:
 	void ComputeRawSubimagesRadiusByVoting();
 	void ComputeRawSubimagesRadiusBySearching();
 	void ComputeCroppedSubimageVerticalEdgeMaps();
+	void ComputeCroppedSubimageLampMaps();
 	void ComputeCroppedSubimagesRadiusBySearching();
 	void ComputeCroppedSubimageTruncatedCones();
 	void ComputeCroppedSubimageTruncatedConesWithOffsets();
@@ -68,7 +69,10 @@ public:
 	void ExportCroppedSubimagesWithMarkedTruncatedCone(const TruncatedConePrimitive& truncated_cone, const string& file_name);
 	void ComputePoleWithLamps();
 	void LoadPoleWithLamps();
+	void ComputeAdjustedPoleWithLamps();
+	void LoadAdjustedPoleWithLamps();
 	void ExportRawSubimagesWithMarkedPoleWithLamps();
+	void ExportRawSubimagesWithMarkedAdjustedPoleWithLamps();
 private:
 	string export_directory_;
 	Dataset dataset_;
@@ -85,12 +89,14 @@ private:
 	vector<ImageCamera> cropped_image_cameras_;
 	vector<cv::Mat> cropped_subimages_;
 	vector<cv::Mat> cropped_edge_maps_;
+	vector<cv::Mat> cropped_lamp_maps_;
 	vector<CylinderPrimitive> cylinder_hypotheses_with_radii_;
 	vector<TruncatedConePrimitive> truncated_cone_hypotheses_with_radii_;
 	vector<TruncatedConePrimitive> truncated_cone_hypotheses_with_radii_offsets_;
 	vector<TruncatedConePrimitive> truncated_cone_hypotheses_with_radii_offsets_extents_;
 	bool import_neighboring_points_;
 	vector<PoleWithLamp> pole_with_lamps_;
+	vector<PoleWithLamp> adjusted_pole_with_lamps_;
 
 	void ExportPointCloud(const pcl::PointCloud<pcl::PointXYZ>& point_cloud, const string& file_name);
 	pcl::PointCloud<pcl::PointXYZ> ImportPointCloud(const string& file_name);
@@ -128,16 +134,21 @@ private:
 	void MarkSubimageWithCylinderOutline(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage);
 	void MarkSubimageWithTruncatedConeOutline(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const TruncatedConePrimitive& truncated_cone, const cv::Scalar& color, const int& radius_in_pixel, cv::Mat* subimage);
 	void MarkSubimageWithPoleWithLampSurfaceAxisOutline(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const PoleWithLamp& pole_with_lamp, cv::Mat* subimage);
+	void MarkSubimageWithLampSurface(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const EllipsePrimitive& lamp, const cv::Scalar& color, cv::Mat* subimage);
+	void MarkSubimageWithLampSurfaceOutline(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const EllipsePrimitive& lamp, cv::Mat* subimage);
 	cv::Mat ComputeVerticalEdgeMap(const cv::Mat& subimage, const int& index);
+	cv::Mat ComputeLampMap(const cv::Mat& subimage, const int& index);
 	double RetrieveSubimagePixelRounding(const RasterizedSubimage& rasterized_subimage, const Vector2d& pixel, const cv::Mat& subimage);
 	double RetrieveSubimagePixel(const RasterizedSubimage& rasterized_subimage, const Vector2d& pixel, const cv::Mat& subimage);
 	double RetrieveSubimageWithUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& utm_point, const cv::Mat& subimage);
 	double RetrieveSubimageWithShiftedUtmPoint(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const Vector3d& shifted_utm_point, const cv::Mat& subimage);
 	double ComputeCylinderEdgeResponse(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const CylinderPrimitive& cylinder, const cv::Mat& subimage);
 	double ComputeTruncatedConeEdgeResponse(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const TruncatedConePrimitive& truncated_cone, const cv::Mat& subimage);
+	double ComputeEllipseEdgeResponse(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const EllipsePrimitive& ellipse, const cv::Mat& subimage);
 	double ComputeTruncatedConeSumEdgeResponse(const TruncatedConePrimitive& truncated_cone);
 	double ComputeTruncatedConeSumEdgeResponse(const vector<TruncatedConePrimitive>& truncated_cone);
 	double ComputeTruncatedConeSumEdgeResponseDebug(const TruncatedConePrimitive& truncated_cone);
+	double ComputeEllipseSumEdgeResponse(const EllipsePrimitive& ellipse);
 	cv::Mat ExtractCroppedSubimage(const cv::Mat& raw_subimage, const HalfOpenBox2i& raw_bounds, const HalfOpenBox2i& cropped_bounds);
 	Vector2d ProjectShiftedUtmPoint(const ExportCameraModel& camera_model, const Vector3d& shifted_utm_point);
 	void TestBilinearPixelRetrieval();

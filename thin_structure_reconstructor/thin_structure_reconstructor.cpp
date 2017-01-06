@@ -130,7 +130,8 @@ void ThinStructureReconstructor::ExportPoleWithLampPrimitives(const vector<PoleW
 		out_stream << setprecision(8) << fixed << truncated_cone.ra << " " << truncated_cone.rb << " ";
 		if (pole_with_lamp.has_lamp) {
 			out_stream << "1 ";
-			out_stream << setprecision(8) << fixed << pole_with_lamp.end_point.x << " " << pole_with_lamp.end_point.y << " " << pole_with_lamp.end_point.z << endl;
+			out_stream << setprecision(8) << fixed << pole_with_lamp.end_point.x << " " << pole_with_lamp.end_point.y << " " << pole_with_lamp.end_point.z << " ";
+			out_stream << setprecision(8) << fixed << pole_with_lamp.ellipse_radius_large << " " << pole_with_lamp.ellipse_radius_small << endl;
 		} else {
 			out_stream << "0" << endl;
 		}
@@ -171,6 +172,42 @@ void ThinStructureReconstructor::ExportPoleWithLampMeshes(const vector<PoleWithL
 				out_stream << "f " << vertex_count + (subdivision_index + 1) % 16 + 1 << " " << vertex_count + (subdivision_index + 1) % 16 + 16 + 1 << " " << vertex_count + subdivision_index + 16 + 1 << endl;
 			}
 			vertex_count += 16 * 2;
+		}
+		if (pole_with_lamps[index].has_lamp) {
+			const Eigen::Vector3d axis_x = Eigen::Vector3d(1.0, 0.0, 0.0);
+			const Eigen::Vector3d axis_y = Eigen::Vector3d(0.0, 1.0, 0.0);
+			const Eigen::Vector3d axis_z = Eigen::Vector3d(0.0, 0.0, 1.0);
+			const Eigen::Vector3d south_pole = pole_with_lamps[index].end_point.ToEigenVector() - pole_with_lamps[index].ellipse_radius_small * axis_z;
+			const Eigen::Vector3d north_pole = pole_with_lamps[index].end_point.ToEigenVector() + pole_with_lamps[index].ellipse_radius_small * axis_z;
+			out_stream << setprecision(8) << fixed << "v " << south_pole.x() << " " << south_pole.y() << " " << south_pole.z() << endl;
+			for (int vertical_angle_index = -7; vertical_angle_index <= 7; ++vertical_angle_index) {
+				for (int horizontal_angle_index = 0; horizontal_angle_index < 16; ++horizontal_angle_index) {
+					double vertical_angle = PI / 2.0 * (double) vertical_angle_index / 8;
+					double horizontal_angle = PI * 2.0 * (double) horizontal_angle_index / 16;
+					const Eigen::Vector3d vertex = pole_with_lamps[index].end_point.ToEigenVector()
+						+ pole_with_lamps[index].ellipse_radius_small * axis_z * sin(vertical_angle)
+						+ pole_with_lamps[index].ellipse_radius_large * axis_x * cos(vertical_angle) * cos(horizontal_angle)
+						+ pole_with_lamps[index].ellipse_radius_large * axis_y * cos(vertical_angle) * sin(horizontal_angle);
+					out_stream << setprecision(8) << fixed << "v " << vertex.x() << " " << vertex.y() << " " << vertex.z() << endl;
+				}
+			}
+			out_stream << setprecision(8) << fixed << "v " << north_pole.x() << " " << north_pole.y() << " " << north_pole.z() << endl;
+			for (int horizontal_angle_index = 0; horizontal_angle_index < 16; ++horizontal_angle_index) {
+				out_stream << "f " << vertex_count + 1 << " " << vertex_count + 1 + horizontal_angle_index % 16 + 1 << " " << vertex_count + 1 + (horizontal_angle_index + 1) % 16 + 1 << endl;
+			}
+			++ vertex_count;
+			for (int vertical_angle_index = -7; vertical_angle_index < 7; ++vertical_angle_index) {
+				for (int horizontal_angle_index = 0; horizontal_angle_index < 16; ++horizontal_angle_index) {
+					out_stream << "f " << vertex_count + horizontal_angle_index % 16 + 1 << " " << vertex_count + (horizontal_angle_index + 1) % 16 + 1 << " " << vertex_count + 16 + horizontal_angle_index % 16 + 1 << endl;
+					out_stream << "f " << vertex_count + (horizontal_angle_index + 1) % 16 + 1 << " " << vertex_count + 16 + horizontal_angle_index % 16 + 1 << " " << vertex_count + 16 + (horizontal_angle_index + 1) % 16 + 1 << endl;
+				}
+				vertex_count += 16;
+			}
+			for (int horizontal_angle_index = 0; horizontal_angle_index < 16; ++horizontal_angle_index) {
+				out_stream << "f " << vertex_count + horizontal_angle_index % 16 + 1 << " " << vertex_count + (horizontal_angle_index + 1) % 16 + 1 << " " << vertex_count + 16 + 1 << endl;
+			}
+			vertex_count += 16 + 1;
+			//vertex_count += 16 * 15 + 2;
 		}
 	}
 	out_stream.close();
@@ -225,6 +262,7 @@ vector<PoleWithLamp> ThinStructureReconstructor::ImportPoleWithLampPrimitives(co
 		if (has_lamp) {
 			pole_with_lamp.has_lamp = true;
 			iss >> pole_with_lamp.end_point.x >> pole_with_lamp.end_point.y >> pole_with_lamp.end_point.z;
+			iss >> pole_with_lamp.ellipse_radius_large >> pole_with_lamp.ellipse_radius_small;
 		} else {
 			pole_with_lamp.has_lamp = false;
 		}
@@ -817,10 +855,36 @@ void ThinStructureReconstructor::MarkSubimageWithTruncatedConeSurfaceAxisOutline
 	MarkSubimageWithTruncatedConeOutline(rasterized_subimage, camera_model, truncated_cone, cv::Scalar(255, 0, 0), 1.0, subimage);
 }
 
+void ThinStructureReconstructor::MarkSubimageWithLampSurface(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const EllipsePrimitive& lamp, const cv::Scalar& color, cv::Mat* subimage) {
+	const Eigen::Vector3d axis_x = Eigen::Vector3d(1.0, 0.0, 0.0);
+	const Eigen::Vector3d axis_y = Eigen::Vector3d(0.0, 1.0, 0.0);
+	const Eigen::Vector3d axis_z = Eigen::Vector3d(0.0, 0.0, 1.0);
+	const Eigen::Vector3d south_pole = lamp.center.ToEigenVector() - lamp.radius_small * axis_z;
+	MarkSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(south_pole), color, 1.0, subimage);
+	const Eigen::Vector3d north_pole = lamp.center.ToEigenVector() + lamp.radius_small * axis_z;
+	MarkSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(north_pole), color, 1.0, subimage);
+	for (int vertical_angle_index = -7; vertical_angle_index <= 7; ++vertical_angle_index) {
+		for (int horizontal_angle_index = 0; horizontal_angle_index < 16; ++horizontal_angle_index) {
+			double vertical_angle = PI / 2.0 * (double) vertical_angle_index / 8;
+			double horizontal_angle = PI * 2.0 * (double) horizontal_angle_index / 16;
+			const Eigen::Vector3d vertex = lamp.center.ToEigenVector()
+				+ lamp.radius_small * axis_z * sin(vertical_angle)
+				+ lamp.radius_large * axis_x * cos(vertical_angle) * cos(horizontal_angle)
+				+ lamp.radius_large * axis_y * cos(vertical_angle) * sin(horizontal_angle);
+			MarkSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(vertex), color, 1.0, subimage);
+		}
+	}
+}
+
+void ThinStructureReconstructor::MarkSubimageWithLampSurfaceOutline(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const EllipsePrimitive& lamp, cv::Mat* subimage) {
+	MarkSubimageWithLampSurface(rasterized_subimage, camera_model, lamp, cv::Scalar(0, 255, 0), subimage);
+}
+
 void ThinStructureReconstructor::MarkSubimageWithPoleWithLampSurfaceAxisOutline(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const PoleWithLamp& pole_with_lamp, cv::Mat* subimage) {
 	MarkSubimageWithTruncatedConeSurfaceAxisOutline(rasterized_subimage, camera_model, pole_with_lamp.truncated_cone, subimage);
 	if (pole_with_lamp.has_lamp) {
 		MarkSubimageWithTruncatedConeSurfaceAxisOutline(rasterized_subimage, camera_model, pole_with_lamp.GetArmTruncatedCone(), subimage);
+		MarkSubimageWithLampSurfaceOutline(rasterized_subimage, camera_model, pole_with_lamp.GetLampEllipse(), subimage);
 	}
 }
 
@@ -991,6 +1055,19 @@ cv::Mat ThinStructureReconstructor::ComputeVerticalEdgeMap(const cv::Mat& subima
 	return vertical_edge_response;
 }
 
+cv::Mat ThinStructureReconstructor::ComputeLampMap(const cv::Mat& subimage, const int& index) {
+	cv::Mat gray;
+	cv::cvtColor(subimage, gray, CV_BGR2GRAY);
+
+	cv::Mat float_gray;
+	gray.convertTo(float_gray, CV_32F);
+
+	cv::Mat normalized_gray;
+	cv::normalize(float_gray, normalized_gray, 0.0, 1.0, cv::NORM_MINMAX);
+
+	return normalized_gray;
+}
+
 double ThinStructureReconstructor::RetrieveSubimagePixelRounding(const RasterizedSubimage& rasterized_subimage, const Vector2d& pixel, const cv::Mat& subimage) {
 	const Vector2i integer_pixel(round(pixel.x), round(pixel.y));
 	if (rasterized_subimage.bounds.Contains(integer_pixel)) {
@@ -1111,6 +1188,49 @@ double ThinStructureReconstructor::ComputeTruncatedConeEdgeResponse(const Raster
 	return edge_response;
 }
 
+double ThinStructureReconstructor::ComputeEllipseEdgeResponse(const RasterizedSubimage& rasterized_subimage, const ExportCameraModel& camera_model, const EllipsePrimitive& ellipse, const cv::Mat& subimage) {
+	double edge_response = 0.0;
+	int valid_point_num = 0;
+	const Eigen::Vector3d axis_x = Eigen::Vector3d(1.0, 0.0, 0.0);
+	const Eigen::Vector3d axis_y = Eigen::Vector3d(0.0, 1.0, 0.0);
+	const Eigen::Vector3d axis_z = Eigen::Vector3d(0.0, 0.0, 1.0);
+	const Eigen::Vector3d south_pole = ellipse.center.ToEigenVector() - ellipse.radius_small * axis_z;
+	{
+		const double edge_value = RetrieveSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(south_pole), subimage);
+		if (edge_value >= 0.0) {
+			edge_response += edge_value;
+			++valid_point_num;
+		}
+	}
+	const Eigen::Vector3d north_pole = ellipse.center.ToEigenVector() + ellipse.radius_small * axis_z;
+	{
+		const double edge_value = RetrieveSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(north_pole), subimage);
+		if (edge_value >= 0.0) {
+			edge_response += edge_value;
+			++valid_point_num;
+		}
+	}
+	for (int vertical_angle_index = -7; vertical_angle_index <= 7; ++vertical_angle_index) {
+		for (int horizontal_angle_index = 0; horizontal_angle_index < 16; ++horizontal_angle_index) {
+			double vertical_angle = PI / 2.0 * (double) vertical_angle_index / 8;
+			double horizontal_angle = PI * 2.0 * (double) horizontal_angle_index / 16;
+			const Eigen::Vector3d vertex = ellipse.center.ToEigenVector()
+				+ ellipse.radius_small * axis_z * sin(vertical_angle)
+				+ ellipse.radius_large * axis_x * cos(vertical_angle) * cos(horizontal_angle)
+				+ ellipse.radius_large * axis_y * cos(vertical_angle) * sin(horizontal_angle);
+			const double edge_value = RetrieveSubimageWithShiftedUtmPoint(rasterized_subimage, camera_model, Vector3d(vertex), subimage);
+			if (edge_value >= 0.0) {
+				edge_response += edge_value;
+				++valid_point_num;
+			}
+		}
+	}
+	if (valid_point_num != 0) {
+		edge_response /= valid_point_num;
+	}
+	return edge_response;
+}
+
 double ThinStructureReconstructor::ComputeTruncatedConeSumEdgeResponse(const TruncatedConePrimitive& truncated_cone) {
 	const double ratio = 0.5;
 	vector<double> edge_responses;
@@ -1163,6 +1283,35 @@ double ThinStructureReconstructor::ComputeTruncatedConeSumEdgeResponseDebug(cons
 	for (int index = 0; index < edge_responses.size(); ++index) {
 		cout << "index: " << index << " edge response: " << edge_responses[index] << endl;
 	}
+	double sum_edge_response = 0.0;
+	int sum_images = 0;
+	for (int index = 0; index < cropped_image_cameras_.size(); ++index) {
+		if (((double)index / cropped_image_cameras_.size() < ratio) || (edge_responses[index] >= 0.01)) {
+			const double& edge_response = edge_responses[index];
+			sum_edge_response += edge_response;
+			++sum_images;
+		}
+	}
+	if (sum_images == 0) {
+		sum_edge_response = 0.0;
+	} else {
+		sum_edge_response /= sum_images;
+	}
+	return sum_edge_response;
+}
+
+double ThinStructureReconstructor::ComputeEllipseSumEdgeResponse(const EllipsePrimitive& ellipse) {
+	const double ratio = 0.5;
+	vector<double> edge_responses;
+	for (int index = 0; index < cropped_image_cameras_.size(); ++index) {
+		const ImageCamera& image_camera = cropped_image_cameras_[index];
+		const cv::Mat& lamp_map = cropped_lamp_maps_[index];
+
+		const double edge_response = ComputeEllipseEdgeResponse(image_camera.subimage, image_camera.camera_model, ellipse, lamp_map);
+		edge_responses.push_back(edge_response);
+	}
+	sort(edge_responses.begin(), edge_responses.end());
+	reverse(edge_responses.begin(), edge_responses.end());
 	double sum_edge_response = 0.0;
 	int sum_images = 0;
 	for (int index = 0; index < cropped_image_cameras_.size(); ++index) {
@@ -1313,6 +1462,17 @@ void ThinStructureReconstructor::ComputeCroppedSubimageVerticalEdgeMaps() {
 		const cv::Mat vertical_edge_response = ComputeVerticalEdgeMap(subimage, index);
 		//cv::imwrite(export_directory_ + NumberToString(index) + "_vertical_edge_response.png", vertical_edge_response * 255.0);
 		cropped_edge_maps_.push_back(vertical_edge_response);
+	}
+}
+
+void ThinStructureReconstructor::ComputeCroppedSubimageLampMaps() {
+	cout << "Computing lamp maps on cropped subimages" << endl;
+	cropped_lamp_maps_.clear();
+	for (int index = 0; index < cropped_image_cameras_.size(); ++index) {
+		const cv::Mat& subimage = cropped_subimages_[index];
+		const cv::Mat lamp_map = ComputeLampMap(subimage, index);
+		//cv::imwrite(export_directory_ + NumberToString(index) + "_lamp_map.png", lamp_map * 255.0);
+		cropped_lamp_maps_.push_back(lamp_map);
 	}
 }
 
@@ -1889,10 +2049,7 @@ PoleWithLamp ThinStructureReconstructor::ComputePoleWithLampFromTopRegionNeighbo
 		nodes.push_back(Node(index, angle));
 	}
 	sort(nodes.begin(), nodes.end());
-	for (int index = 0; index < nodes.size(); ++index) {
-		cout << nodes[index].angle << " ";
-	}
-	cout << endl;
+
 	int max_population = -1;
 	int max_index;
 	int max_upper_index;
@@ -1909,8 +2066,7 @@ PoleWithLamp ThinStructureReconstructor::ComputePoleWithLampFromTopRegionNeighbo
 			&& AngleDiff(nodes[index].angle, nodes[(lower_index - 1 + nodes.size()) % nodes.size()].angle) < 0.2) {
 			lower_index = (lower_index - 1 + nodes.size()) % nodes.size();
 		}
-		cout << "index: " << index << " angle: " << nodes[index].angle << endl;
-		cout << "lower_index: " << lower_index << " upper_index: " << upper_index << endl;
+
 		int current_population = IndexDiff(upper_index, lower_index, nodes.size()) + 1;
 		if (current_population > max_population) {
 			max_population = current_population;
@@ -1919,7 +2075,7 @@ PoleWithLamp ThinStructureReconstructor::ComputePoleWithLampFromTopRegionNeighbo
 			max_lower_index = lower_index;
 		}
 	}
-	cout << "max_index: " << max_index << " max_population: " << max_population << endl;
+
 	double angle = nodes[max_index].angle;
 	double length = 0.0;
 	for (int index = max_lower_index; index != max_upper_index; index = (index + 1) % nodes.size()) {
@@ -1934,7 +2090,7 @@ PoleWithLamp ThinStructureReconstructor::ComputePoleWithLampFromTopRegionNeighbo
 	Vector3d end_point = truncated_cone.pb.ToEigenVector()
 		+ length * cos(angle) * Eigen::Vector3d(1.0, 0.0, 0.0)
 		+ length * sin(angle) * Eigen::Vector3d(0.0, 1.0, 0.0);
-	cout << "end_point: " << end_point.ToEigenVector();
+	cout << "end_point: " << end_point.x << ", " << end_point.y << ", " << end_point.z << endl;
 	int num_inliers = 0;
 	for (int index = 0; index < point_cloud.points.size(); ++index) {
 		const pcl::PointXYZ& point = point_cloud.points[index];
@@ -1975,12 +2131,64 @@ void ThinStructureReconstructor::ComputePoleWithLamps() {
 	ExportCroppedSubimagesWithMarkedPoleWithLamps(pole_with_lamps_, "_marked_pole_with_lamps");
 }
 
+void ThinStructureReconstructor::ComputeAdjustedPoleWithLamps() {
+	adjusted_pole_with_lamps_.clear();
+	for (int pole_with_lamp_index = 0; pole_with_lamp_index < pole_with_lamps_.size(); ++pole_with_lamp_index) {
+		cout << "Adjusting pole with lamp #" << pole_with_lamp_index << endl;
+		const PoleWithLamp& pole_with_lamp = pole_with_lamps_[pole_with_lamp_index];
+		if (!pole_with_lamp.has_lamp) {
+			adjusted_pole_with_lamps_.push_back(pole_with_lamp);
+		} else {
+			const double length = (pole_with_lamp.truncated_cone.pb.ToEigenVector() - pole_with_lamp.end_point.ToEigenVector()).norm();
+
+			PoleWithLamp max_pole_with_lamp = pole_with_lamp;
+			double max_score = ComputeEllipseSumEdgeResponse(max_pole_with_lamp.GetLampEllipse());
+			double max_length_ratio = 1.0;
+			double max_delta_z = 0.0;
+			cout << "original score: " << max_score << endl;
+
+			for (double length_ratio = 0.5; length_ratio <= 1.2; length_ratio += 0.05) {
+				for (double delta_z = -1.0; delta_z <= 1.0; delta_z += 0.05) {
+					PoleWithLamp current_pole_with_lamp = pole_with_lamp;
+					const double current_length = length * length_ratio;
+					current_pole_with_lamp.end_point = (Vector3d) (
+						(1.0 - length_ratio) * current_pole_with_lamp.truncated_cone.pb.ToEigenVector()
+						+ length_ratio * current_pole_with_lamp.end_point.ToEigenVector());
+					current_pole_with_lamp.end_point.z += delta_z;
+					const double current_score = ComputeEllipseSumEdgeResponse(current_pole_with_lamp.GetLampEllipse());
+					cout << "length_ratio: " << length_ratio << " delta_z: " << delta_z << " score: " << current_score << endl;
+					if (current_score > max_score) {
+						max_score = current_score;
+						max_length_ratio = length_ratio;
+						max_delta_z = delta_z;
+						max_pole_with_lamp = current_pole_with_lamp;
+					}
+				}
+			}
+
+			cout << "max_length_ratio: " << max_length_ratio << " max_delta_z: " << max_delta_z << endl;
+			adjusted_pole_with_lamps_.push_back(max_pole_with_lamp);
+		}
+	}
+	ExportPoleWithLampPrimitives(adjusted_pole_with_lamps_, "adjusted_pole_with_lamps.dat");
+	ExportPoleWithLampMeshes(adjusted_pole_with_lamps_, "adjusted_pole_with_lamps.obj");
+	ExportCroppedSubimagesWithMarkedPoleWithLamps(adjusted_pole_with_lamps_, "_marked_adjusted_pole_with_lamps");
+}
+
 void ThinStructureReconstructor::LoadPoleWithLamps() {
 	pole_with_lamps_ = ImportPoleWithLampPrimitives("pole_with_lamps.dat");
 }
 
+void ThinStructureReconstructor::LoadAdjustedPoleWithLamps() {
+	adjusted_pole_with_lamps_ = ImportPoleWithLampPrimitives("adjusted_pole_with_lamps.dat");
+}
+
 void ThinStructureReconstructor::ExportRawSubimagesWithMarkedPoleWithLamps() {
 	ExportRawSubimagesWithMarkedPoleWithLamps(pole_with_lamps_, "_marked_pole_with_lamps");
+}
+
+void ThinStructureReconstructor::ExportRawSubimagesWithMarkedAdjustedPoleWithLamps() {
+	ExportRawSubimagesWithMarkedPoleWithLamps(adjusted_pole_with_lamps_, "_marked_adjusted_pole_with_lamps");
 }
 
 void ThinStructureReconstructor::ExportRawSubimagesWithMarkedPoleWithLamps(const vector<PoleWithLamp>& pole_with_lamps, const string& file_name) {

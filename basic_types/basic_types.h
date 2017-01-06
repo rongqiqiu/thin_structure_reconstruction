@@ -204,21 +204,39 @@ struct TruncatedConePrimitive {
 	}
 };
 
+struct EllipsePrimitive {
+	Vector3d center;
+	double radius_large; // horizontal radius
+	double radius_small; // vertical radius;
+	EllipsePrimitive() {}
+	EllipsePrimitive(const Vector3d& input_center, const double& input_radius_large, const double& input_radius_small)
+		: center(input_center), radius_large(input_radius_large), radius_small(input_radius_small) {}
+};
+
 struct PoleWithLamp {
 	TruncatedConePrimitive truncated_cone;
 	bool has_lamp;
 	Vector3d end_point;
-	PoleWithLamp() : has_lamp(false) {}
-	PoleWithLamp(const TruncatedConePrimitive& input_truncated_cone) : truncated_cone(input_truncated_cone), has_lamp(false) {}
-	PoleWithLamp(const Vector3d& input_end_point) : has_lamp(true), end_point(input_end_point) {}
+	double ellipse_radius_large;
+	double ellipse_radius_small;
+	PoleWithLamp() : has_lamp(false), ellipse_radius_large(0.5), ellipse_radius_small(0.2) {}
+	PoleWithLamp(const TruncatedConePrimitive& input_truncated_cone) : truncated_cone(input_truncated_cone), has_lamp(false), ellipse_radius_large(0.5), ellipse_radius_small(0.2) {}
+	PoleWithLamp(const Vector3d& input_end_point) : has_lamp(true), end_point(input_end_point), ellipse_radius_large(0.5), ellipse_radius_small(0.2) {}
 	PoleWithLamp(const TruncatedConePrimitive& input_truncated_cone, const Vector3d& input_end_point)
-		: truncated_cone(input_truncated_cone), has_lamp(true), end_point(input_end_point) {}
+		: truncated_cone(input_truncated_cone), has_lamp(true), end_point(input_end_point), ellipse_radius_large(0.5), ellipse_radius_small(0.2) {}
 	TruncatedConePrimitive GetArmTruncatedCone() const {
 		TruncatedConePrimitive arm_truncated_cone;
 		arm_truncated_cone.ra = arm_truncated_cone.rb = truncated_cone.rb;
 		arm_truncated_cone.pa = truncated_cone.pb;
 		arm_truncated_cone.pb = end_point;
 		return arm_truncated_cone;
+	}
+	EllipsePrimitive GetLampEllipse() const {
+		EllipsePrimitive lamp_ellipse;
+		lamp_ellipse.center = end_point;
+		lamp_ellipse.radius_large = ellipse_radius_large;
+		lamp_ellipse.radius_small = ellipse_radius_small;
+		return lamp_ellipse;
 	}
 };
 

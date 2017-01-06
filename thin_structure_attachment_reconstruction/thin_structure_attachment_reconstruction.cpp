@@ -39,8 +39,19 @@ int main(int argc, char** argv) {
 	result = time(NULL);
 	cout << "Time: " << asctime(localtime(&result)) << endl;
 
+	reconstructor.ComputeCroppedSubimageLampMaps();
+
+	result = time(NULL);
+	cout << "Time: " << asctime(localtime(&result)) << endl;
+
 	reconstructor.SetImportNeighboringPoints(false);
 	reconstructor.ComputePoleWithLamps();
+	//reconstructor.LoadPoleWithLamps();
+
+	result = time(NULL);
+	cout << "Time: " << asctime(localtime(&result)) << endl;
+	reconstructor.ComputeAdjustedPoleWithLamps();
+	//reconstructor.LoadAdjustedPoleWithLamps();
 
 	result = time(NULL);
 	cout << "Finishing time: " << asctime(localtime(&result)) << endl;
