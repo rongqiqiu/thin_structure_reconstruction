@@ -1,2 +1,2 @@
 # Joint 2D-3D Multi-View Thin Structure Reconstruction
-Thin structure reconstruction
+This project aims at automatic detection and reconstruction of thin structures in urban scenes from multi-view stereo images and point clouds. Thin structures (e.g., traffic signs, poles, etc.) tend to be missed by general 3D reconstruction systems. Here we explicitly detect them using joint 2D-3D methods. Specifically, we generate hypotheses in 3D point clouds and verify/refine them in 2D images. 
